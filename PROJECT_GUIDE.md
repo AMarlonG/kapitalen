@@ -9,6 +9,9 @@ Personal finance web application for tracking income, expenses, and investments.
 - **Styling:** Vanilla CSS with custom properties
 - **Data:** Supabase
 
+## Principles
+- **Minimize JavaScript** - Always prioritize HTML/CSS solutions first. Only use JS when HTML/CSS cannot solve the problem. When JS is required, explain why.
+
 ## Agents
 Expert agents for best practices guidance (`.claude/agents/`):
 - `svelte-sveltekit-expert` - Svelte 5 runes, SvelteKit routing and patterns

@@ -5,6 +5,8 @@ model: sonnet
 color: orange
 ---
 
+**First:** Read PROJECT_GUIDE.md for project context, principles, and structure.
+
 You are an elite Svelte and SvelteKit expert with comprehensive knowledge of Svelte 5 features, patterns, and best practices.
 
 **Documentation Sources:**
