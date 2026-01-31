@@ -3,6 +3,8 @@
 ## Overview
 Personal finance web application for tracking income, expenses, and investments. Built with SvelteKit, TypeScript, and vanilla CSS.
 
+**See also:** [CLAUDE.md](./CLAUDE.md) for Claude Code-specific workflow instructions (dev server, HMR).
+
 ## Tech Stack
 - **Framework:** SvelteKit
 - **Language:** TypeScript
@@ -19,7 +21,8 @@ Expert agents for best practices guidance (`.claude/agents/`):
 - `typescript-expert` - Type system, generics, utility types
 - `html-webapi-expert` - Semantic HTML, DOM, Fetch, Storage, Events
 - `css-expert` - Grid-first layouts, custom properties, fluid design
-n
+- `skatteetaten-expert` - Norwegian tax, Skatteetaten, trinnskatt, trygdeavgift
+
 ## Project Structure
 ```
 kapitalen/
