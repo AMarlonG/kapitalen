@@ -10,13 +10,13 @@ Help the user choose the right expert agent(s) for their issue.
 
 ## Available Agents
 
-| Agent | Use When |
-|-------|----------|
+| Agent                     | Use When                                                                                |
+| ------------------------- | --------------------------------------------------------------------------------------- |
 | `svelte-sveltekit-expert` | Svelte 5 runes, components, reactivity, SvelteKit routing, load functions, form actions |
-| `supabase-expert` | Database schema, auth, RLS policies, storage, realtime subscriptions, edge functions |
-| `typescript-expert` | Type errors, generics, utility types, type-safe patterns, interface design |
-| `html-webapi-expert` | Semantic markup, accessibility, DOM APIs, Fetch, localStorage, browser events |
-| `css-expert` | Layouts (grid/flexbox), responsive design, custom properties, animations |
+| `supabase-expert`         | Database schema, auth, RLS policies, storage, realtime subscriptions, edge functions    |
+| `typescript-expert`       | Type errors, generics, utility types, type-safe patterns, interface design              |
+| `html-webapi-expert`      | Semantic markup, accessibility, DOM APIs, Fetch, localStorage, browser events           |
+| `css-expert`              | Layouts (grid/flexbox), responsive design, custom properties, animations                |
 
 ## Example Recommendations
 

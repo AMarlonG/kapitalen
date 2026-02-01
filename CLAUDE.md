@@ -10,6 +10,7 @@
 - If you need to check a port, use `lsof -i :5173` instead of starting a new server
 
 ## Project Stack
+
 - SvelteKit with Svelte 5 (runes)
 - TypeScript
 - Vite
@@ -24,6 +25,7 @@ Essential resources for tax calculations:
 - **Table Number Overview 2025+**: https://www.skatteetaten.no/en/business-and-organisation/employer/tax-deduction-cards-and-tax-deductions/as-an-employer-you-are-obliged-to-make-withholding-tax-deductions/overview-over-the-table-steps-for-deduction-tables-2025/
 
 **Note:** Table numbers changed in 2025:
+
 - Old: 7100-7133
 - New: 8000-8400 (deduction tables), 9010-9400 (supplementary tables)
 - The number indicates deductions in thousands (e.g., 8130 = 130,000 kr in deductions)
