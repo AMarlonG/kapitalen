@@ -27,4 +27,4 @@ Help the user choose the right expert agent(s) for their issue.
 - "Type error in my store" → `typescript-expert` + `svelte-sveltekit-expert`
 - "Auth flow with protected routes" → `supabase-expert` + `svelte-sveltekit-expert`
 
-3. **Invoke agents** - Use the Task tool to spawn the recommended agent(s) with the user's issue as context
+3. **Invoke agents** - Use the Task tool to spawn the recommended agent(s) with the user's issue as context. **Do NOT answer the question yourself - always delegate to the expert agent.**
