@@ -1,0 +1,65 @@
+/* Theme Color Palettes */
+/* Only colors - these switch between light/dark themes */
+
+/* Dark theme (default) */
+:root,
+[data-theme='dark'] {
+	/* Colors - OKLCH with HSL fallbacks */
+	--color-primary: hsl(45, 93%, 47%);
+	--color-primary: oklch(77% 0.14 85);
+	--color-primary-hover: hsl(45, 93%, 55%);
+	--color-primary-hover: oklch(82% 0.14 85);
+	--color-secondary: hsl(214, 15%, 45%);
+	--color-secondary: oklch(50% 0.02 250);
+	--color-success: #22c55e;
+	--color-warning: #f59e0b;
+	--color-danger: #ef4444;
+
+	/* Neutrals */
+	--color-bg: hsl(214, 28%, 17%);
+	--color-bg: oklch(24% 0.02 250);
+	--color-surface: hsl(214, 25%, 22%);
+	--color-surface: oklch(30% 0.02 250);
+	--color-border: hsl(214, 20%, 30%);
+	--color-border: oklch(38% 0.02 250);
+	--color-text: hsl(45, 93%, 47%);
+	--color-text: oklch(77% 0.14 85);
+	--color-text-muted: hsl(42, 35%, 72%);
+	--color-text-muted: oklch(78% 0.05 85);
+
+	/* Extended color scale */
+	--color-gray-300: hsl(214, 15%, 40%);
+	--color-gray-300: oklch(45% 0.02 250);
+	--color-red-600: #dc2626;
+}
+
+/* Light theme - Peachy/Salmon with Dark Green */
+[data-theme='light'] {
+	/* Colors */
+	--color-primary: hsl(153, 66%, 12%);
+	--color-primary: oklch(22% 0.05 160);
+	--color-primary-hover: hsl(153, 66%, 18%);
+	--color-primary-hover: oklch(28% 0.05 160);
+	--color-secondary: hsl(17, 30%, 50%);
+	--color-secondary: oklch(55% 0.06 40);
+	--color-success: #16a34a;
+	--color-warning: #d97706;
+	--color-danger: #dc2626;
+
+	/* Neutrals */
+	--color-bg: hsl(17, 53%, 76%);
+	--color-bg: oklch(80% 0.06 40);
+	--color-surface: hsl(17, 60%, 92%);
+	--color-surface: oklch(94% 0.02 40);
+	--color-border: hsl(17, 30%, 65%);
+	--color-border: oklch(72% 0.04 40);
+	--color-text: hsl(153, 66%, 8%);
+	--color-text: oklch(18% 0.05 160);
+	--color-text-muted: hsl(153, 40%, 25%);
+	--color-text-muted: oklch(32% 0.04 160);
+
+	/* Extended color scale */
+	--color-gray-300: hsl(17, 20%, 55%);
+	--color-gray-300: oklch(60% 0.03 40);
+	--color-red-600: #b91c1c;
+}
