@@ -5,11 +5,10 @@
 		updateExpense,
 		removeExpense,
 		getTotalExpenses,
-		getCategoryTotal,
-		formatCurrency,
-		EXPENSE_CATEGORIES,
-		type ExpenseCategory
+		getCategoryTotal
 	} from '$lib/stores/budget.svelte';
+	import { formatCurrency } from '$lib/utils/formatters';
+	import { EXPENSE_CATEGORIES, type ExpenseCategory } from '$lib/types/budget';
 
 	// Form state for expense
 	let editingExpenseId = $state<string | null>(null);

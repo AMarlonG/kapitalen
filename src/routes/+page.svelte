@@ -4,10 +4,9 @@
 		getTotalNetIncome,
 		getTotalExpenses,
 		getMonthlySavings,
-		getSavingsRate,
-		formatCurrency,
-		formatPercent
+		getSavingsRate
 	} from '$lib/stores/budget.svelte';
+	import { formatCurrency, formatPercent } from '$lib/utils/formatters';
 </script>
 
 <svelte:head>

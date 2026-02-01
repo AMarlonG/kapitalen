@@ -4,31 +4,32 @@
 		getFreelanceIncomes,
 		getEnkExpenses,
 		setEnkExpenses,
+		getGlobalTaxMethod,
+		setGlobalTaxMethod,
+		getGlobalTaxPercentage,
+		setGlobalTaxPercentage,
 		addIncome,
 		updateIncome,
 		removeIncome,
 		addFreelanceIncome,
 		updateFreelanceIncome,
 		removeFreelanceIncome,
+		addAdjustment,
+		updateAdjustment,
+		removeAdjustment,
 		calculateCombinedTax,
-		getTotalFreelanceMva,
-		formatCurrency,
-		TRINNSKATT_BRACKETS,
-		getGlobalTaxMethod,
-		setGlobalTaxMethod,
-		getGlobalTaxPercentage,
-		setGlobalTaxPercentage,
+		getTotalFreelanceMva
+	} from '$lib/stores/budget.svelte';
+	import {
 		getMonthsWorked,
 		getProratedYearlyAmount,
 		calculateFeriepenger,
 		getTotalAdjustments,
-		getAdjustmentsForFeriepenger,
-		addAdjustment,
-		updateAdjustment,
-		removeAdjustment,
-		type AdjustmentType,
-		type IncomeAdjustment
-	} from '$lib/stores/budget.svelte';
+		getAdjustmentsForFeriepenger
+	} from '$lib/services/tax-calculator';
+	import { TRINNSKATT_BRACKETS } from '$lib/constants/tax';
+	import { formatCurrency } from '$lib/utils/formatters';
+	import type { AdjustmentType, IncomeAdjustment } from '$lib/types/budget';
 
 	// Constants for adjustments
 	const MONTHS_NO = [

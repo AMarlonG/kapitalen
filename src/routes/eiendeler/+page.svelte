@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { formatCurrency } from '$lib/stores/budget.svelte';
+	import { formatCurrency } from '$lib/utils/formatters';
 </script>
 
 <svelte:head>
