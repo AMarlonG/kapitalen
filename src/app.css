@@ -447,7 +447,14 @@ button:active {
 }
 
 .summary-grid-single {
-	max-width: 400px;
+	width: calc(50% - var(--space-lg) / 2);
+	margin-inline: auto;
+}
+
+@media (max-width: 768px) {
+	.summary-grid-single {
+		width: 100%;
+	}
 }
 
 .summary-card {
