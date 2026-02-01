@@ -68,6 +68,7 @@ export interface Expense {
 	name: string;
 	monthlyAmounts: number[]; // 12 values: index 0 = Jan, index 11 = Dec
 	category: ExpenseCategory;
+	frequency: 'monthly' | 'yearly';
 }
 
 /**
@@ -146,6 +147,14 @@ export interface WithholdingResult {
 export interface ExpenseCategoryOption {
 	value: ExpenseCategory;
 	label: string;
+}
+
+/**
+ * Food expenses with monthly amounts for inne (groceries) and ute (dining out)
+ */
+export interface FoodExpenses {
+	inne: number[]; // 12 values (Jan-Dec)
+	ute: number[]; // 12 values (Jan-Dec)
 }
 
 /**

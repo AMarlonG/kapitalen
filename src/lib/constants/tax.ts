@@ -81,5 +81,6 @@ export const STORAGE_KEYS = {
 	expenses: 'kapitalen_expenses',
 	enkExpenses: 'kapitalen_enk_expenses',
 	taxMethod: 'kapitalen_tax_method',
-	taxPercentage: 'kapitalen_tax_percentage'
+	taxPercentage: 'kapitalen_tax_percentage',
+	foodExpenses: 'kapitalen_food_expenses'
 } as const;
