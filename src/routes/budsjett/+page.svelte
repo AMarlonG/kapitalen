@@ -14,18 +14,74 @@
 		getTotalFreelanceMva,
 		formatCurrency,
 		TRINNSKATT_BRACKETS,
-		type TaxMethod
+		getGlobalTaxMethod,
+		setGlobalTaxMethod,
+		getGlobalTaxPercentage,
+		setGlobalTaxPercentage,
+		getMonthsWorked,
+		getProratedYearlyAmount,
+		calculateFeriepenger,
+		getTotalAdjustments,
+		getAdjustmentsForFeriepenger,
+		addAdjustment,
+		updateAdjustment,
+		removeAdjustment,
+		type AdjustmentType,
+		type IncomeAdjustment
 	} from '$lib/stores/budget.svelte';
 
-	// Global tax method setting
-	let globalTaxMethod = $state<TaxMethod>('tabelltrekk');
-	let globalTaxPercentage = $state<number>(35);
+	// Constants for adjustments
+	const MONTHS_NO = [
+		{ value: 1, label: 'Januar' },
+		{ value: 2, label: 'Februar' },
+		{ value: 3, label: 'Mars' },
+		{ value: 4, label: 'April' },
+		{ value: 5, label: 'Mai' },
+		{ value: 6, label: 'Juni' },
+		{ value: 7, label: 'Juli' },
+		{ value: 8, label: 'August' },
+		{ value: 9, label: 'September' },
+		{ value: 10, label: 'Oktober' },
+		{ value: 11, label: 'November' },
+		{ value: 12, label: 'Desember' }
+	];
+
+	const ADJUSTMENT_TYPES = [
+		{ value: 'bonus' as AdjustmentType, label: 'Bonus' },
+		{ value: 'overtid' as AdjustmentType, label: 'Overtid' },
+		{ value: 'annet' as AdjustmentType, label: 'Annet' }
+	];
 
 	// Form state for income (no tax method - that's handled separately)
 	let editingIncomeId = $state<string | null>(null);
 	let newIncomeName = $state('');
 	let newIncomeYearlyAmount = $state<number | null>(null);
 	let newIncomePercentage = $state<number>(100);
+	let newIncomePeriodType = $state<'fullYear' | 'custom'>('fullYear');
+	let newIncomeStartDate = $state('');
+	let newIncomeEndDate = $state('');
+	let newIncomeFerieUker = $state<'4+1' | '5'>('5');
+	let newIncomeIsOver60 = $state(false);
+
+	// Form state for collapsible sections
+	let showFeriepenger = $state(false);
+	let showAdjustments = $state(false);
+	let editingAdjustmentId = $state<string | null>(null);
+	let newAdjustmentType = $state<AdjustmentType>('bonus');
+	let newAdjustmentMonth = $state<number>(new Date().getMonth() + 1);
+	let newAdjustmentAmount = $state<number | null>(null);
+	let newAdjustmentDescription = $state('');
+	let newAdjustmentAffectsFerie = $state(true);
+
+	// Auto-open sections when editing employer with non-default values
+	$effect(() => {
+		if (editingIncomeId) {
+			const income = getIncomes().find(i => i.id === editingIncomeId);
+			showAdjustments = (income?.adjustments?.length ?? 0) > 0;
+			// Open feriepenger if non-default values
+			showFeriepenger = income?.ferieUker === '4+1' || income?.isOver60 === true;
+		}
+	});
 
 	// Form state for freelance income
 	let editingFreelanceId = $state<string | null>(null);
@@ -53,9 +109,14 @@
 					newIncomeName.trim(),
 					newIncomeYearlyAmount,
 					newIncomePercentage,
-					existing?.taxMethod ?? globalTaxMethod,
-					existing?.customTaxPercentage ?? globalTaxPercentage,
-					existing?.trekkprosent
+					existing?.taxMethod ?? getGlobalTaxMethod(),
+					existing?.customTaxPercentage ?? getGlobalTaxPercentage(),
+					existing?.trekkprosent,
+					newIncomePeriodType,
+					newIncomeStartDate || undefined,
+					newIncomeEndDate || undefined,
+					newIncomeFerieUker,
+					newIncomeIsOver60
 				);
 				editingIncomeId = null;
 			} else {
@@ -63,13 +124,24 @@
 					newIncomeName.trim(),
 					newIncomeYearlyAmount,
 					newIncomePercentage,
-					globalTaxMethod,
-					globalTaxPercentage
+					getGlobalTaxMethod(),
+					getGlobalTaxPercentage(),
+					undefined,
+					newIncomePeriodType,
+					newIncomeStartDate || undefined,
+					newIncomeEndDate || undefined,
+					newIncomeFerieUker,
+					newIncomeIsOver60
 				);
 			}
 			newIncomeName = '';
 			newIncomeYearlyAmount = null;
 			newIncomePercentage = 100;
+			newIncomePeriodType = 'fullYear';
+			newIncomeStartDate = '';
+			newIncomeEndDate = '';
+			newIncomeFerieUker = '5';
+			newIncomeIsOver60 = false;
 		}
 	}
 
@@ -78,11 +150,25 @@
 		name: string;
 		yearlyAmount: number;
 		employeePercentage: number;
+		periodType: 'fullYear' | 'custom';
+		startDate?: string;
+		endDate?: string;
+		ferieUker: '4+1' | '5';
+		isOver60: boolean;
 	}) {
 		editingIncomeId = income.id;
 		newIncomeName = income.name;
 		newIncomeYearlyAmount = income.yearlyAmount;
 		newIncomePercentage = income.employeePercentage;
+		newIncomePeriodType = income.periodType;
+		newIncomeStartDate = income.startDate ?? '';
+		newIncomeEndDate = income.endDate ?? '';
+		newIncomeFerieUker = income.ferieUker;
+		newIncomeIsOver60 = income.isOver60;
+		// Scroll popover to top so form is visible
+		setTimeout(() => {
+			document.querySelector('.popover')?.scrollTo({ top: 0, behavior: 'smooth' });
+		}, 50);
 	}
 
 	function cancelEditIncome() {
@@ -90,7 +176,77 @@
 		newIncomeName = '';
 		newIncomeYearlyAmount = null;
 		newIncomePercentage = 100;
+		newIncomePeriodType = 'fullYear';
+		newIncomeStartDate = '';
+		newIncomeEndDate = '';
+		newIncomeFerieUker = '5';
+		newIncomeIsOver60 = false;
+		// Reset collapsible sections
+		showFeriepenger = false;
+		showAdjustments = false;
+		resetAdjustmentForm();
 	}
+
+	function resetAdjustmentForm() {
+		editingAdjustmentId = null;
+		newAdjustmentType = 'bonus';
+		newAdjustmentMonth = new Date().getMonth() + 1;
+		newAdjustmentAmount = null;
+		newAdjustmentDescription = '';
+		newAdjustmentAffectsFerie = true;
+	}
+
+	function handleAddAdjustment() {
+		if (!editingIncomeId || !newAdjustmentAmount || newAdjustmentAmount <= 0) return;
+
+		if (editingAdjustmentId) {
+			updateAdjustment(
+				editingIncomeId,
+				editingAdjustmentId,
+				newAdjustmentType,
+				newAdjustmentAmount,
+				newAdjustmentMonth,
+				newAdjustmentDescription || undefined,
+				newAdjustmentAffectsFerie
+			);
+		} else {
+			addAdjustment(
+				editingIncomeId,
+				newAdjustmentType,
+				newAdjustmentAmount,
+				newAdjustmentMonth,
+				newAdjustmentDescription || undefined,
+				newAdjustmentAffectsFerie
+			);
+		}
+		resetAdjustmentForm();
+	}
+
+	function startEditAdjustment(adjustment: IncomeAdjustment) {
+		editingAdjustmentId = adjustment.id;
+		newAdjustmentType = adjustment.type;
+		newAdjustmentMonth = adjustment.month;
+		newAdjustmentAmount = adjustment.amount;
+		newAdjustmentDescription = adjustment.description ?? '';
+		newAdjustmentAffectsFerie = adjustment.affectsFeriepenger;
+	}
+
+	function handleRemoveAdjustment(adjustmentId: string) {
+		if (editingIncomeId) {
+			removeAdjustment(editingIncomeId, adjustmentId);
+			if (editingAdjustmentId === adjustmentId) {
+				resetAdjustmentForm();
+			}
+		}
+	}
+
+	// Update default affectsFerie when type changes
+	$effect(() => {
+		if (!editingAdjustmentId) {
+			// Only update default for new adjustments
+			newAdjustmentAffectsFerie = newAdjustmentType !== 'annet';
+		}
+	});
 
 	function handleAddFreelance(event: Event) {
 		event.preventDefault();
@@ -121,19 +277,40 @@
 		newFreelanceAmount = null;
 	}
 
-	// Popover state - Arbeidsgivere
-	let showArbeidsgiverPopover = $state(false);
+	// Popover state - Arbeidsgivere (split into Add and Edit)
+	let showAddPopover = $state(false);
+	let showEditPopover = $state(false);
 
-	function openArbeidsgiverPopover() {
-		showArbeidsgiverPopover = true;
+	function openAddPopover() {
+		showAddPopover = true;
 	}
 
-	function closeArbeidsgiverPopover() {
-		showArbeidsgiverPopover = false;
+	function closeAddPopover() {
+		showAddPopover = false;
 		cancelEditIncome();
 	}
 
-	// Popover state - Trekkprosent (now in Oppgjør)
+	function openEditPopover(income: {
+		id: string;
+		name: string;
+		yearlyAmount: number;
+		employeePercentage: number;
+		periodType: 'fullYear' | 'custom';
+		startDate?: string;
+		endDate?: string;
+		ferieUker: '4+1' | '5';
+		isOver60: boolean;
+	}) {
+		startEditIncome(income);
+		showEditPopover = true;
+	}
+
+	function closeEditPopover() {
+		showEditPopover = false;
+		cancelEditIncome();
+	}
+
+	// Popover state - Trekkprosent (in Lønn box)
 	let showTrekkprosentPopover = $state(false);
 
 	function openTrekkprosentPopover() {
@@ -154,29 +331,53 @@
 				income.employeePercentage,
 				'tabelltrekk',
 				undefined,
-				trekkprosent
+				trekkprosent,
+				income.periodType,
+				income.startDate,
+				income.endDate,
+				income.ferieUker,
+				income.isOver60
 			);
 		}
 	}
 
-	function handleArbeidsgiverSubmit(event: Event) {
+	function handleAddSubmit(event: Event) {
 		handleAddIncome(event);
+		// Close popover on successful submission
 		if (newIncomeName === '' && newIncomeYearlyAmount === null) {
-			// Form was successfully submitted and cleared
-			showArbeidsgiverPopover = false;
+			closeAddPopover();
 		}
 	}
 
-	// Popover state - Oppdrag
-	let showOppdragPopover = $state(false);
-	let showUtgifterPopover = $state(false);
-
-	function openOppdragPopover() {
-		showOppdragPopover = true;
+	function handleEditSubmit(event: Event) {
+		handleAddIncome(event);
+		// Close popover on successful submission
+		if (newIncomeName === '' && newIncomeYearlyAmount === null) {
+			closeEditPopover();
+		}
 	}
 
-	function closeOppdragPopover() {
-		showOppdragPopover = false;
+	// Popover state - Oppdrag (split into Add and Edit)
+	let showAddOppdragPopover = $state(false);
+	let showEditOppdragPopover = $state(false);
+	let showUtgifterPopover = $state(false);
+
+	function openAddOppdragPopover() {
+		showAddOppdragPopover = true;
+	}
+
+	function closeAddOppdragPopover() {
+		showAddOppdragPopover = false;
+		cancelEditFreelance();
+	}
+
+	function openEditOppdragPopover(freelance: { id: string; client: string; description: string; amount: number }) {
+		startEditFreelance(freelance);
+		showEditOppdragPopover = true;
+	}
+
+	function closeEditOppdragPopover() {
+		showEditOppdragPopover = false;
 		cancelEditFreelance();
 	}
 
@@ -188,21 +389,86 @@
 		showUtgifterPopover = false;
 	}
 
-	function handleOppdragSubmit(event: Event) {
+	function handleAddOppdragSubmit(event: Event) {
 		handleAddFreelance(event);
+		// Close popover on successful submission
 		if (newFreelanceClient === '' && newFreelanceAmount === null) {
-			// Form was successfully submitted and cleared
-			// Don't close - let user add more or close manually
+			closeAddOppdragPopover();
+		}
+	}
+
+	function handleEditOppdragSubmit(event: Event) {
+		handleAddFreelance(event);
+		// Close popover on successful submission
+		if (newFreelanceClient === '' && newFreelanceAmount === null) {
+			closeEditOppdragPopover();
 		}
 	}
 
 	// Derived: Combined tax calculation
 	const combinedTax = $derived(calculateCombinedTax());
 
+	// Computed brutto for the add/edit income form (base salary only)
+	const formComputedBrutto = $derived.by(() => {
+		const fullYearAmount = (newIncomeYearlyAmount ?? 0) * newIncomePercentage / 100;
+
+		if (newIncomePeriodType === 'custom' && newIncomeStartDate && newIncomeEndDate) {
+			const start = new Date(newIncomeStartDate);
+			const end = new Date(newIncomeEndDate);
+			const months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()) + 1;
+			const clampedMonths = Math.min(12, Math.max(1, months));
+
+			if (clampedMonths < 12) {
+				const proratedAmount = fullYearAmount * clampedMonths / 12;
+				return proratedAmount;
+			}
+		}
+
+		return fullYearAmount;
+	});
+
+	// Get current adjustments total for the form
+	const formAdjustmentsTotal = $derived.by(() => {
+		if (!editingIncomeId) return 0;
+		const income = getIncomes().find(i => i.id === editingIncomeId);
+		return income ? getTotalAdjustments(income) : 0;
+	});
+
+	// Get adjustments that affect feriepenger for the form
+	const formAdjustmentsForFerie = $derived.by(() => {
+		if (!editingIncomeId) return 0;
+		const income = getIncomes().find(i => i.id === editingIncomeId);
+		return income ? getAdjustmentsForFeriepenger(income) : 0;
+	});
+
+	// Computed total brutto including adjustments
+	const formComputedTotalBrutto = $derived(formComputedBrutto + formAdjustmentsTotal);
+
+	// Computed feriepenger for the form (base + qualifying adjustments)
+	const formComputedFeriepenger = $derived.by(() => {
+		const RATES = {
+			'4+1': { standard: 0.102, over60: 0.125 },
+			'5':   { standard: 0.12,  over60: 0.143 }
+		};
+		const rates = RATES[newIncomeFerieUker];
+		const rate = newIncomeIsOver60 ? rates.over60 : rates.standard;
+		return (formComputedBrutto + formAdjustmentsForFerie) * rate;
+	});
+
+	// Format feriepenger rate as percentage
+	const formFeriepengerRate = $derived.by(() => {
+		const RATES = {
+			'4+1': { standard: 10.2, over60: 12.5 },
+			'5':   { standard: 12.0, over60: 14.3 }
+		};
+		const rates = RATES[newIncomeFerieUker];
+		return newIncomeIsOver60 ? rates.over60 : rates.standard;
+	});
+
 	// Computed withholding percentage for display
-	const effectiveWithholdingPercent = $derived(() => {
-		if (globalTaxMethod === 'prosenttrekk') {
-			return globalTaxPercentage;
+	const effectiveWithholdingPercent = $derived.by(() => {
+		if (getGlobalTaxMethod() === 'prosenttrekk') {
+			return getGlobalTaxPercentage();
 		}
 		const allHaveTrekkprosent = getIncomes().length > 0 &&
 			getIncomes().every(i => i.trekkprosent !== undefined && i.trekkprosent > 0);
@@ -243,27 +509,78 @@
 							<span class="inntekt-col-label text-right">Beløp</span>
 						</div>
 						{#each getIncomes() as income (income.id)}
-							{@const computed = income.yearlyAmount * income.employeePercentage / 100}
+							{@const proratedAmount = getProratedYearlyAmount(income)}
+							{@const months = getMonthsWorked(income)}
+							{@const adjTotal = getTotalAdjustments(income)}
 							<div class="inntekt-row">
-								<span>{income.name}</span>
-								<span class="font-mono">{formatCurrency(computed)}</span>
+								<span class="inntekt-name">{income.name}</span>
+								<div class="inntekt-actions">
+									<button
+										type="button"
+										class="btn-icon-sm"
+										onclick={() => openEditPopover(income)}
+										aria-label="Rediger {income.name}"
+									>
+										&#9998;
+									</button>
+									<button
+										type="button"
+										class="btn-icon-sm btn-icon-danger"
+										onclick={() => removeIncome(income.id)}
+										aria-label="Fjern {income.name}"
+									>
+										&#10005;
+									</button>
+								</div>
+								<span class="font-mono inntekt-amount">
+									{#if income.periodType === 'custom' && months < 12}
+										<span class="text-muted" style="font-size: 0.85em">{months} mnd:</span>
+									{/if}
+									{formatCurrency(proratedAmount + adjTotal)}
+								</span>
 							</div>
 						{/each}
 					{/if}
 					<button
 						type="button"
 						class="btn-add-item"
-						onclick={openArbeidsgiverPopover}
+						onclick={openAddPopover}
 					>
-						{getIncomes().length > 0 ? 'Administrer' : '+ Legg til arbeidsgiver'}
+						+ Legg til arbeidsgiver
 					</button>
 				</div>
 
 				{#if combinedTax.lonnGross > 0}
-					<div class="inntekt-total">
-						<span>Brutto lønn</span>
-						<span class="font-mono">{formatCurrency(combinedTax.lonnGross)}</span>
+					<div class="trekkprosent-row">
+						<button type="button" class="btn-trekkprosent" onclick={openTrekkprosentPopover}>
+							Trekkprosent
+						</button>
+						<span class="font-mono">{effectiveWithholdingPercent}%</span>
 					</div>
+					<dl class="lonn-summary" aria-live="polite">
+						<div class="lonn-row">
+							<dt>Brutto lønn</dt>
+							<dd class="font-mono">{formatCurrency(combinedTax.lonnGross)}</dd>
+						</div>
+						<div class="lonn-row skattetrekk-row">
+							<dt>Sum skattetrekk</dt>
+							<dd class="font-mono">−{formatCurrency(combinedTax.skattetrekk)}</dd>
+						</div>
+						<div class="lonn-row netto-row">
+							<dt>Netto lønn</dt>
+							<dd class="font-mono">{formatCurrency(combinedTax.lonnGross - combinedTax.skattetrekk)}</dd>
+						</div>
+						<div class="lonn-row netto-month-row">
+							<dt>Utbetalt per måned</dt>
+							<dd class="font-mono">{formatCurrency((combinedTax.lonnGross - combinedTax.skattetrekk) / 12)}</dd>
+						</div>
+						{#if combinedTax.totalFeriepenger > 0}
+							<div class="lonn-row feriepenger-row">
+								<dt>Feriepenger (neste år)</dt>
+								<dd class="font-mono">{formatCurrency(combinedTax.totalFeriepenger)}</dd>
+							</div>
+						{/if}
+					</dl>
 				{/if}
 			</div>
 
@@ -279,43 +596,61 @@
 						</div>
 						{#each getFreelanceIncomes() as freelance (freelance.id)}
 							<div class="inntekt-row">
-								<span>{freelance.client}</span>
-								<span class="font-mono">{formatCurrency(freelance.amount)}</span>
+								<span class="inntekt-name">{freelance.client}</span>
+								<div class="inntekt-actions">
+									<button
+										type="button"
+										class="btn-icon-sm"
+										onclick={() => openEditOppdragPopover(freelance)}
+										aria-label="Rediger {freelance.client}"
+									>
+										&#9998;
+									</button>
+									<button
+										type="button"
+										class="btn-icon-sm btn-icon-danger"
+										onclick={() => removeFreelanceIncome(freelance.id)}
+										aria-label="Fjern {freelance.client}"
+									>
+										&#10005;
+									</button>
+								</div>
+								<span class="font-mono inntekt-amount">{formatCurrency(freelance.amount)}</span>
 							</div>
 						{/each}
 					{/if}
 					<button
 						type="button"
 						class="btn-add-item"
-						onclick={openOppdragPopover}
+						onclick={openAddOppdragPopover}
 					>
-						{getFreelanceIncomes().length > 0 ? 'Administrer' : '+ Legg til oppdrag'}
+						+ Legg til oppdrag
 					</button>
 				</div>
 
 				{#if combinedTax.enkGross > 0}
-					<div class="naering-summary">
+					<dl class="naering-summary" aria-live="polite">
 						<div class="summary-line">
-							<span>Brutto</span>
-							<span class="font-mono">{formatCurrency(combinedTax.enkGross)}</span>
+							<dt>Brutto</dt>
+							<dd class="font-mono">{formatCurrency(combinedTax.enkGross)}</dd>
 						</div>
 						<div class="summary-line utgift-line">
-							<button type="button" class="btn-utgifter" onclick={openUtgifterPopover}>
-								{combinedTax.enkExpenses > 0 ? 'Utgifter' : '+ Legg til utgifter'}
-							</button>
-							{#if combinedTax.enkExpenses > 0}
-								<span class="font-mono">−{formatCurrency(combinedTax.enkExpenses)}</span>
-							{/if}
+							<dt>
+								<button type="button" class="btn-trekkprosent" onclick={openUtgifterPopover}>
+									Utgifter
+								</button>
+							</dt>
+							<dd class="font-mono">−{formatCurrency(combinedTax.enkExpenses)}</dd>
 						</div>
 						<div class="inntekt-total">
-							<span>Næringsinntekt</span>
-							<span class="font-mono">{formatCurrency(combinedTax.enkNet)}</span>
+							<dt>Næringsinntekt</dt>
+							<dd class="font-mono">{formatCurrency(combinedTax.enkNet)}</dd>
 						</div>
 						<div class="mva-line">
-							<span>MVA å betale</span>
-							<span class="font-mono">{formatCurrency(getTotalFreelanceMva())}</span>
+							<dt>MVA å betale</dt>
+							<dd class="font-mono">{formatCurrency(getTotalFreelanceMva())}</dd>
 						</div>
-					</div>
+					</dl>
 				{/if}
 			</div>
 		</div>
@@ -330,10 +665,10 @@
 
 			<div class="card">
 				<!-- Total Personinntekt Summary -->
-				<div class="personinntekt-summary">
+				<dl class="personinntekt-summary">
 					<div class="personinntekt-row">
-						<span>Samlet personinntekt</span>
-						<span class="font-mono">{formatCurrency(combinedTax.totalPersoninntekt)}</span>
+						<dt>Samlet personinntekt</dt>
+						<dd class="font-mono">{formatCurrency(combinedTax.totalPersoninntekt)}</dd>
 					</div>
 					<div class="personinntekt-breakdown">
 						{#if combinedTax.lonnGross > 0}
@@ -346,7 +681,7 @@
 							<span>Næringsinntekt {formatCurrency(combinedTax.enkNet)}</span>
 						{/if}
 					</div>
-				</div>
+				</dl>
 
 				<details class="tax-details">
 					<summary>Se full skatteutregning</summary>
@@ -425,93 +760,45 @@
 				</details>
 
 				<!-- TOTAL SKATT -->
-				<div class="total-tax-section">
+				<dl class="total-tax-section" aria-live="polite">
 					<div class="total-tax-component">
-						<span>Trygdeavgift</span>
-						<span class="font-mono">{formatCurrency(combinedTax.trygdeavgiftLonn + combinedTax.trygdeavgiftEnk)}</span>
+						<dt>Trygdeavgift</dt>
+						<dd class="font-mono">{formatCurrency(combinedTax.trygdeavgiftLonn + combinedTax.trygdeavgiftEnk)}</dd>
 					</div>
 					<div class="total-tax-component">
-						<span>Trinnskatt</span>
-						<span class="font-mono">{formatCurrency(combinedTax.trinnskatt)}</span>
+						<dt>Trinnskatt</dt>
+						<dd class="font-mono">{formatCurrency(combinedTax.trinnskatt)}</dd>
 					</div>
 					<div class="total-tax-component">
-						<span>Skatt på alminnelig inntekt</span>
-						<span class="font-mono">{formatCurrency(combinedTax.fellesskatt)}</span>
+						<dt>Skatt på alminnelig inntekt</dt>
+						<dd class="font-mono">{formatCurrency(combinedTax.fellesskatt)}</dd>
 					</div>
 					<div class="total-tax-row">
-						<span>Total skatt</span>
-						<span class="font-mono">{formatCurrency(combinedTax.totalTax)}</span>
+						<dt>Forventet skattetrekk</dt>
+						<dd class="font-mono">{formatCurrency(combinedTax.totalTax)}</dd>
 					</div>
 					<div class="effective-rate-row">
-						<span>Effektiv skatteprosent: <span class="text-muted">({formatCurrency(combinedTax.totalTax)} / {formatCurrency(combinedTax.totalPersoninntekt)})*100</span></span>
-						<span class="font-mono">{combinedTax.effectiveRate.toFixed(1)}%</span>
+						<dt>Effektiv skatteprosent: <span class="text-muted">({formatCurrency(combinedTax.totalTax)} / {formatCurrency(combinedTax.totalPersoninntekt)})*100</span></dt>
+						<dd class="font-mono">{combinedTax.effectiveRate.toFixed(1)}%</dd>
 					</div>
-				</div>
-			</div>
-		</section>
-	{/if}
 
-	<!-- OPPGJØR Section -->
-	{#if combinedTax.totalPersoninntekt > 0}
-		<section class="section">
-			<div class="section-header">
-				<h2 class="section-title">Oppgjør</h2>
-			</div>
-
-			<div class="card oppgjor-card">
-				<!-- Skattetrekk fra arbeidsgiver -->
-				{#if combinedTax.lonnGross > 0}
-					<div class="oppgjor-section">
-						<h3 class="oppgjor-title">Skattetrekk fra arbeidsgiver</h3>
-						<div class="trekkprosent-display">
-							<button
-								type="button"
-								class="trekkprosent-button"
-								onclick={openTrekkprosentPopover}
-							>
-								<span class="trekkprosent-label">Trekkprosent (fra lønnsslippen)</span>
-								<span class="trekkprosent-value">{effectiveWithholdingPercent()}%</span>
-							</button>
+					{#if combinedTax.lonnGross > 0}
+						<div class="oppgjor-section">
+							<div class="oppgjor-row {combinedTax.difference >= 0 ? 'refund' : 'restskatt'}">
+								<dt>{combinedTax.difference >= 0 ? 'Skatt tilgode' : 'Skyldig restskatt'}</dt>
+								<dd class="font-mono">{formatCurrency(Math.abs(combinedTax.difference))}</dd>
+							</div>
+							<div class="total-tax-component">
+								<dt>Faktisk skattetrekk</dt>
+								<dd class="font-mono">{formatCurrency(combinedTax.skattetrekk)}</dd>
+							</div>
+							<div class="total-tax-component">
+								<dt>Forventet skattetrekk</dt>
+								<dd class="font-mono">{formatCurrency(combinedTax.totalTax)}</dd>
+							</div>
 						</div>
-						<div class="oppgjor-row">
-							<span>Trukket i løpet av året</span>
-							<span class="font-mono">{formatCurrency(combinedTax.skattetrekk)}</span>
-						</div>
-						<div class="oppgjor-row">
-							<span>Faktisk skatt</span>
-							<span class="font-mono">{formatCurrency(combinedTax.totalTax)}</span>
-						</div>
-						<div class="oppgjor-divider"></div>
-						<div class="oppgjor-row result-row {combinedTax.difference >= 0 ? 'refund' : 'restskatt'}">
-							<span>{combinedTax.difference >= 0 ? 'Tilbake på skatten' : 'Restskatt (må betales)'}</span>
-							<span class="font-mono">{formatCurrency(Math.abs(combinedTax.difference))}</span>
-						</div>
-					</div>
-				{/if}
-
-				<!-- Netto Inntekt -->
-				<div class="oppgjor-section netto-section">
-					<h3 class="oppgjor-title">Netto inntekt</h3>
-					<div class="oppgjor-row">
-						<span>Brutto totalt (lønn + næringsinntekt)</span>
-						<span class="font-mono">{formatCurrency(combinedTax.lonnGross + combinedTax.enkNet)}</span>
-					</div>
-					<div class="oppgjor-row deduction">
-						<span>− Total skatt</span>
-						<span class="font-mono">−{formatCurrency(combinedTax.totalTax)}</span>
-					</div>
-					<div class="oppgjor-divider"></div>
-					<div class="netto-total">
-						<div class="netto-row">
-							<span>Netto (år)</span>
-							<span class="font-mono">{formatCurrency(combinedTax.netIncome)}</span>
-						</div>
-						<div class="netto-row monthly">
-							<span>Netto (måned)</span>
-							<span class="font-mono">{formatCurrency(combinedTax.netIncome / 12)}</span>
-						</div>
-					</div>
-				</div>
+					{/if}
+				</dl>
 			</div>
 		</section>
 	{/if}
@@ -519,10 +806,10 @@
 	<!-- Trekkprosent Popover -->
 	{#if showTrekkprosentPopover}
 		<button type="button" class="popover-backdrop" onclick={closeTrekkprosentPopover} aria-label="Lukk"></button>
-		<div class="popover popover-lg">
+		<div class="popover popover-lg" role="dialog" aria-labelledby="trekkprosent-heading">
 			<div class="popover-header">
-				<h3>Trekkprosent</h3>
-				<button type="button" class="btn-icon" onclick={closeTrekkprosentPopover}>✕</button>
+				<h3 id="trekkprosent-heading">Trekkprosent</h3>
+				<button type="button" class="btn-icon" onclick={closeTrekkprosentPopover} aria-label="Lukk">✕</button>
 			</div>
 
 			<div class="trekk-method-section">
@@ -530,29 +817,30 @@
 					<button
 						type="button"
 						class="tax-toggle-btn"
-						class:active={globalTaxMethod === 'tabelltrekk'}
-						onclick={() => globalTaxMethod = 'tabelltrekk'}
+						class:active={getGlobalTaxMethod() === 'tabelltrekk'}
+						onclick={() => setGlobalTaxMethod('tabelltrekk')}
 					>
 						Tabelltrekk
 					</button>
 					<button
 						type="button"
 						class="tax-toggle-btn"
-						class:active={globalTaxMethod === 'prosenttrekk'}
-						onclick={() => globalTaxMethod = 'prosenttrekk'}
+						class:active={getGlobalTaxMethod() === 'prosenttrekk'}
+						onclick={() => setGlobalTaxMethod('prosenttrekk')}
 					>
 						Prosenttrekk
 					</button>
 				</div>
 			</div>
 
-			{#if globalTaxMethod === 'prosenttrekk'}
+			{#if getGlobalTaxMethod() === 'prosenttrekk'}
 				<div class="form-group">
 					<label class="form-label" for="global-prosenttrekk">Fast trekkprosent for all lønn</label>
 					<input
 						type="number"
 						id="global-prosenttrekk"
-						bind:value={globalTaxPercentage}
+						value={getGlobalTaxPercentage()}
+						oninput={(e) => setGlobalTaxPercentage(e.currentTarget.valueAsNumber)}
 						min="0"
 						max="100"
 					/>
@@ -601,233 +889,571 @@
 		</div>
 	{/if}
 
-	<!-- Arbeidsgiver Popover -->
-	{#if showArbeidsgiverPopover}
-		<button type="button" class="popover-backdrop" onclick={closeArbeidsgiverPopover} aria-label="Lukk"></button>
-		<div class="popover popover-lg">
+	<!-- Add Arbeidsgiver Popover -->
+	{#if showAddPopover}
+		<button type="button" class="popover-backdrop" onclick={closeAddPopover} aria-label="Lukk"></button>
+		<div class="popover popover-lg" role="dialog" aria-labelledby="add-arbeidsgiver-heading">
 			<div class="popover-header">
-				<h3>Administrer arbeidsgivere</h3>
-				<button type="button" class="btn-icon" onclick={closeArbeidsgiverPopover}>✕</button>
+				<h3 id="add-arbeidsgiver-heading">Legg til arbeidsgiver</h3>
+				<button type="button" class="btn-icon" onclick={closeAddPopover} aria-label="Lukk">&#10005;</button>
 			</div>
 
-			{#if getIncomes().length > 0}
-				<div class="popover-list">
-					{#each getIncomes() as income (income.id)}
-						{@const computed = income.yearlyAmount * income.employeePercentage / 100}
-						<div class="popover-list-item" class:editing={editingIncomeId === income.id}>
-							<div class="popover-list-info">
-								<span class="popover-list-name">{income.name}</span>
-								<span class="popover-list-details text-muted">
-									{formatCurrency(income.yearlyAmount)} · {income.employeePercentage}% = {formatCurrency(computed)}
-								</span>
-							</div>
-							<div class="popover-list-actions">
-								<button
-									type="button"
-									class="btn-icon-sm"
-									onclick={() => startEditIncome(income)}
-									aria-label="Rediger {income.name}"
-								>
-									✎
-								</button>
-								<button
-									type="button"
-									class="btn-icon-sm"
-									onclick={() => removeIncome(income.id)}
-									aria-label="Fjern {income.name}"
-								>
-									✕
-								</button>
-							</div>
+			<form class="popover-form" onsubmit={handleAddSubmit}>
+				<fieldset class="form-fieldset">
+					<div class="form-group">
+						<label class="form-label" for="add-income-name">Arbeidsgiver</label>
+						<input
+							type="text"
+							id="add-income-name"
+							bind:value={newIncomeName}
+							placeholder="Navn på arbeidsgiver"
+						/>
+					</div>
+					<div class="form-row-2">
+						<div class="form-group">
+							<label class="form-label" for="add-income-yearly">Årslønn (kr)</label>
+							<input
+								type="number"
+								id="add-income-yearly"
+								bind:value={newIncomeYearlyAmount}
+								placeholder="0"
+								min="0"
+							/>
 						</div>
-					{/each}
-				</div>
-			{/if}
+						<div class="form-group">
+							<label class="form-label" for="add-income-percentage">Stillingsprosent</label>
+							<input
+								type="number"
+								id="add-income-percentage"
+								bind:value={newIncomePercentage}
+								placeholder="100"
+								min="0"
+								max="100"
+							/>
+						</div>
+					</div>
+					<fieldset class="form-group" style="border: none; padding: 0; margin-bottom: var(--space-md);">
+						<legend class="form-label">Periode</legend>
+						<div class="period-selector">
+							<label class="period-option">
+								<input
+									type="radio"
+									name="add-period-type"
+									value="fullYear"
+									bind:group={newIncomePeriodType}
+								/>
+								Hele året
+							</label>
+							<label class="period-option">
+								<input
+									type="radio"
+									name="add-period-type"
+									value="custom"
+									bind:group={newIncomePeriodType}
+								/>
+								Angi periode
+							</label>
+						</div>
+						{#if newIncomePeriodType === 'custom'}
+							<div class="period-dates">
+								<div class="form-group" style="margin-bottom: 0;">
+									<label class="form-label" for="add-income-start-date">Fra</label>
+									<input
+										type="date"
+										id="add-income-start-date"
+										bind:value={newIncomeStartDate}
+									/>
+								</div>
+								<div class="form-group" style="margin-bottom: 0;">
+									<label class="form-label" for="add-income-end-date">Til</label>
+									<input
+										type="date"
+										id="add-income-end-date"
+										bind:value={newIncomeEndDate}
+									/>
+								</div>
+							</div>
+						{/if}
+					</fieldset>
+					<!-- Feriepenger Section (collapsible) -->
+					<div class="collapsible-section">
+						<button
+							type="button"
+							class="collapsible-toggle"
+							onclick={() => showFeriepenger = !showFeriepenger}
+							aria-expanded={showFeriepenger}
+						>
+							<span class="collapsible-toggle-icon">{showFeriepenger ? '▾' : '▸'}</span>
+							<span>Feriepenger</span>
+							<span class="collapsible-summary text-muted">
+								{newIncomeFerieUker === '5' ? '5 uker' : '4+1 uker'}{newIncomeIsOver60 ? ' · 60+' : ''} ({formFeriepengerRate}%)
+							</span>
+						</button>
 
-			<form class="popover-form" onsubmit={handleArbeidsgiverSubmit}>
-				<h4 class="popover-form-title">{editingIncomeId ? 'Rediger' : 'Legg til ny'}</h4>
-				<div class="form-group">
-					<label class="form-label" for="income-name">Arbeidsgiver</label>
-					<input
-						type="text"
-						id="income-name"
-						bind:value={newIncomeName}
-						placeholder="F.eks. Equinor, NAV..."
-					/>
-				</div>
-				<div class="form-row-2">
-					<div class="form-group">
-						<label class="form-label" for="income-yearly">Årslønn (kr)</label>
-						<input
-							type="number"
-							id="income-yearly"
-							bind:value={newIncomeYearlyAmount}
-							placeholder="0"
-							min="0"
-						/>
+						{#if showFeriepenger}
+							<div class="collapsible-content">
+								<fieldset style="border: none; padding: 0; margin: 0;">
+									<legend class="sr-only">Feriepenger</legend>
+									<div class="period-selector">
+										<label class="period-option">
+											<input
+												type="radio"
+												name="add-ferie-uker"
+												value="5"
+												bind:group={newIncomeFerieUker}
+											/>
+											5 uker (12%)
+										</label>
+										<label class="period-option">
+											<input
+												type="radio"
+												name="add-ferie-uker"
+												value="4+1"
+												bind:group={newIncomeFerieUker}
+											/>
+											4+1 uker (10,2%)
+										</label>
+									</div>
+									<label class="checkbox-option">
+										<input
+											type="checkbox"
+											bind:checked={newIncomeIsOver60}
+										/>
+										Arbeidstaker er 60+ år (+2,3%)
+									</label>
+								</fieldset>
+							</div>
+						{/if}
 					</div>
-					<div class="form-group">
-						<label class="form-label" for="income-percentage">Stillingsprosent</label>
-						<input
-							type="number"
-							id="income-percentage"
-							bind:value={newIncomePercentage}
-							placeholder="100"
-							min="0"
-							max="100"
-						/>
+
+					<div class="form-computed-section">
+						<div class="form-computed-row">
+							<span class="form-computed-label">Brutto lønn</span>
+							<span class="form-computed-value font-mono">{formatCurrency(formComputedBrutto)}</span>
+						</div>
+						<div class="form-computed-row">
+							<span class="form-computed-label">Feriepenger ({formFeriepengerRate}%)</span>
+							<span class="form-computed-value font-mono">{formatCurrency(formComputedFeriepenger)}</span>
+						</div>
 					</div>
-				</div>
-				<div class="form-group">
-					<label class="form-label" for="income-computed">Beregnet brutto</label>
-					<input
-						type="text"
-						id="income-computed"
-						readonly
-						value={formatCurrency((newIncomeYearlyAmount ?? 0) * newIncomePercentage / 100)}
-					/>
-				</div>
-				<div class="popover-actions">
-					{#if editingIncomeId}
-						<button type="button" class="btn-secondary" onclick={cancelEditIncome}>Avbryt redigering</button>
-					{/if}
-					<button type="submit" class="btn-primary">{editingIncomeId ? 'Oppdater' : 'Legg til'}</button>
-				</div>
+					<div class="popover-actions">
+						<button type="button" class="btn-secondary" onclick={closeAddPopover}>Avbryt</button>
+						<button type="submit" class="btn-primary">Legg til</button>
+					</div>
+				</fieldset>
 			</form>
+		</div>
+	{/if}
 
-			<div class="popover-footer">
-				<button type="button" class="btn-secondary" onclick={closeArbeidsgiverPopover}>Lukk</button>
+	<!-- Edit Arbeidsgiver Popover -->
+	{#if showEditPopover && editingIncomeId}
+		{@const editingIncome = getIncomes().find(i => i.id === editingIncomeId)}
+		<button type="button" class="popover-backdrop" onclick={closeEditPopover} aria-label="Lukk"></button>
+		<div class="popover popover-lg" role="dialog" aria-labelledby="edit-arbeidsgiver-heading">
+			<div class="popover-header">
+				<h3 id="edit-arbeidsgiver-heading">Rediger {editingIncome?.name ?? 'arbeidsgiver'}</h3>
+				<button type="button" class="btn-icon" onclick={closeEditPopover} aria-label="Lukk">&#10005;</button>
 			</div>
+
+			<form class="popover-form" onsubmit={handleEditSubmit}>
+				<fieldset class="form-fieldset">
+					<div class="form-group">
+						<label class="form-label" for="edit-income-name">Arbeidsgiver</label>
+						<input
+							type="text"
+							id="edit-income-name"
+							bind:value={newIncomeName}
+							placeholder="Navn på arbeidsgiver"
+						/>
+					</div>
+					<div class="form-row-2">
+						<div class="form-group">
+							<label class="form-label" for="edit-income-yearly">Årslønn (kr)</label>
+							<input
+								type="number"
+								id="edit-income-yearly"
+								bind:value={newIncomeYearlyAmount}
+								placeholder="0"
+								min="0"
+							/>
+						</div>
+						<div class="form-group">
+							<label class="form-label" for="edit-income-percentage">Stillingsprosent</label>
+							<input
+								type="number"
+								id="edit-income-percentage"
+								bind:value={newIncomePercentage}
+								placeholder="100"
+								min="0"
+								max="100"
+							/>
+						</div>
+					</div>
+					<fieldset class="form-group" style="border: none; padding: 0; margin-bottom: var(--space-md);">
+						<legend class="form-label">Periode</legend>
+						<div class="period-selector">
+							<label class="period-option">
+								<input
+									type="radio"
+									name="edit-period-type"
+									value="fullYear"
+									bind:group={newIncomePeriodType}
+								/>
+								Hele året
+							</label>
+							<label class="period-option">
+								<input
+									type="radio"
+									name="edit-period-type"
+									value="custom"
+									bind:group={newIncomePeriodType}
+								/>
+								Angi periode
+							</label>
+						</div>
+						{#if newIncomePeriodType === 'custom'}
+							<div class="period-dates">
+								<div class="form-group" style="margin-bottom: 0;">
+									<label class="form-label" for="edit-income-start-date">Fra</label>
+									<input
+										type="date"
+										id="edit-income-start-date"
+										bind:value={newIncomeStartDate}
+									/>
+								</div>
+								<div class="form-group" style="margin-bottom: 0;">
+									<label class="form-label" for="edit-income-end-date">Til</label>
+									<input
+										type="date"
+										id="edit-income-end-date"
+										bind:value={newIncomeEndDate}
+									/>
+								</div>
+							</div>
+						{/if}
+					</fieldset>
+					<!-- Feriepenger Section (collapsible) -->
+					<div class="collapsible-section">
+						<button
+							type="button"
+							class="collapsible-toggle"
+							onclick={() => showFeriepenger = !showFeriepenger}
+							aria-expanded={showFeriepenger}
+						>
+							<span class="collapsible-toggle-icon">{showFeriepenger ? '▾' : '▸'}</span>
+							<span>Feriepenger</span>
+							<span class="collapsible-summary text-muted">
+								{newIncomeFerieUker === '5' ? '5 uker' : '4+1 uker'}{newIncomeIsOver60 ? ' · 60+' : ''} ({formFeriepengerRate}%)
+							</span>
+						</button>
+
+						{#if showFeriepenger}
+							<div class="collapsible-content">
+								<fieldset style="border: none; padding: 0; margin: 0;">
+									<legend class="sr-only">Feriepenger</legend>
+									<div class="period-selector">
+										<label class="period-option">
+											<input
+												type="radio"
+												name="edit-ferie-uker"
+												value="5"
+												bind:group={newIncomeFerieUker}
+											/>
+											5 uker (12%)
+										</label>
+										<label class="period-option">
+											<input
+												type="radio"
+												name="edit-ferie-uker"
+												value="4+1"
+												bind:group={newIncomeFerieUker}
+											/>
+											4+1 uker (10,2%)
+										</label>
+									</div>
+									<label class="checkbox-option">
+										<input
+											type="checkbox"
+											bind:checked={newIncomeIsOver60}
+										/>
+										Arbeidstaker er 60+ år (+2,3%)
+									</label>
+								</fieldset>
+							</div>
+						{/if}
+					</div>
+
+					<!-- Adjustments Section (only in edit popover) -->
+					<div class="adjustments-section">
+						<button
+							type="button"
+							class="adjustments-toggle"
+							onclick={() => showAdjustments = !showAdjustments}
+							aria-expanded={showAdjustments}
+						>
+							<span class="adjustments-toggle-icon">{showAdjustments ? '▾' : '▸'}</span>
+							Tillegg og bonus ({editingIncome?.adjustments?.length ?? 0} registrert)
+						</button>
+
+						{#if showAdjustments}
+							<div class="adjustments-content">
+								<!-- Existing adjustments list -->
+								{#if (editingIncome?.adjustments?.length ?? 0) > 0}
+									<ul class="adjustments-list">
+										{#each editingIncome?.adjustments ?? [] as adjustment (adjustment.id)}
+											{@const monthLabel = MONTHS_NO.find(m => m.value === adjustment.month)?.label ?? ''}
+											{@const typeLabel = ADJUSTMENT_TYPES.find(t => t.value === adjustment.type)?.label ?? ''}
+											<li class="adjustment-item" class:editing={editingAdjustmentId === adjustment.id}>
+												<div class="adjustment-info">
+													<span class="adjustment-month">{monthLabel}:</span>
+													<span class="adjustment-type">{typeLabel}</span>
+													<span class="adjustment-amount font-mono">{formatCurrency(adjustment.amount)}</span>
+													{#if !adjustment.affectsFeriepenger}
+														<span class="adjustment-no-ferie" title="Påvirker ikke feriepenger">&#10005; ferie</span>
+													{/if}
+												</div>
+												<div class="adjustment-actions">
+													<button
+														type="button"
+														class="btn-icon-sm"
+														onclick={() => startEditAdjustment(adjustment)}
+														aria-label="Rediger tillegg"
+													>
+														&#9998;
+													</button>
+													<button
+														type="button"
+														class="btn-icon-sm"
+														onclick={() => handleRemoveAdjustment(adjustment.id)}
+														aria-label="Fjern tillegg"
+													>
+														&#10005;
+													</button>
+												</div>
+											</li>
+										{/each}
+									</ul>
+								{/if}
+
+								<!-- Add/Edit adjustment form -->
+								<div class="adjustment-form">
+									<div class="adjustment-form-row">
+										<div class="form-group" style="margin-bottom: 0;">
+											<label class="form-label" for="adj-type">Type</label>
+											<select id="adj-type" bind:value={newAdjustmentType}>
+												{#each ADJUSTMENT_TYPES as type}
+													<option value={type.value}>{type.label}</option>
+												{/each}
+											</select>
+										</div>
+										<div class="form-group" style="margin-bottom: 0;">
+											<label class="form-label" for="adj-month">Måned</label>
+											<select id="adj-month" bind:value={newAdjustmentMonth}>
+												{#each MONTHS_NO as month}
+													<option value={month.value}>{month.label}</option>
+												{/each}
+											</select>
+										</div>
+									</div>
+									<div class="form-group">
+										<label class="form-label" for="adj-amount">Beløp (kr)</label>
+										<input
+											type="number"
+											id="adj-amount"
+											bind:value={newAdjustmentAmount}
+											placeholder="0"
+											min="0"
+										/>
+									</div>
+									<label class="checkbox-option" style="margin-top: 0;">
+										<input
+											type="checkbox"
+											bind:checked={newAdjustmentAffectsFerie}
+										/>
+										Påvirker feriepenger
+									</label>
+									<div class="adjustment-form-actions">
+										{#if editingAdjustmentId}
+											<button type="button" class="btn-secondary btn-sm" onclick={resetAdjustmentForm}>Avbryt</button>
+										{/if}
+										<button
+											type="button"
+											class="btn-primary btn-sm"
+											onclick={handleAddAdjustment}
+											disabled={!newAdjustmentAmount || newAdjustmentAmount <= 0}
+										>
+											{editingAdjustmentId ? 'Oppdater' : '+ Legg til'}
+										</button>
+									</div>
+								</div>
+							</div>
+						{/if}
+					</div>
+
+					<div class="form-computed-section">
+						<div class="form-computed-row">
+							<span class="form-computed-label">Brutto lønn</span>
+							<span class="form-computed-value font-mono">{formatCurrency(formComputedBrutto)}</span>
+						</div>
+						{#if formAdjustmentsTotal > 0}
+							<div class="form-computed-row form-computed-adjustment">
+								<span class="form-computed-label">+ Tillegg/bonus</span>
+								<span class="form-computed-value font-mono">+{formatCurrency(formAdjustmentsTotal)}</span>
+							</div>
+							<div class="form-computed-row form-computed-total">
+								<span class="form-computed-label">= Total</span>
+								<span class="form-computed-value font-mono">{formatCurrency(formComputedTotalBrutto)}</span>
+							</div>
+						{/if}
+						<div class="form-computed-row">
+							<span class="form-computed-label">Feriepenger ({formFeriepengerRate}%)</span>
+							<span class="form-computed-value font-mono">{formatCurrency(formComputedFeriepenger)}</span>
+						</div>
+					</div>
+					<div class="popover-actions">
+						<button type="button" class="btn-secondary" onclick={closeEditPopover}>Avbryt</button>
+						<button type="submit" class="btn-primary">Oppdater</button>
+					</div>
+				</fieldset>
+			</form>
 		</div>
 	{/if}
 
 	<!-- Utgifter Popover -->
 	{#if showUtgifterPopover}
 		<button type="button" class="popover-backdrop" onclick={closeUtgifterPopover} aria-label="Lukk"></button>
-		<div class="popover popover-sm">
+		<div class="popover popover-sm" role="dialog" aria-labelledby="utgifter-heading">
 			<div class="popover-header">
-				<h3>Utgifter</h3>
-				<button type="button" class="btn-icon" onclick={closeUtgifterPopover}>✕</button>
+				<h3 id="utgifter-heading">Utgifter</h3>
+				<button type="button" class="btn-icon" onclick={closeUtgifterPopover} aria-label="Lukk">✕</button>
 			</div>
-			<div class="form-group">
-				<label class="form-label" for="enk-expenses">Totale utgifter (kr)</label>
-				<input
-					type="number"
-					id="enk-expenses"
-					value={enkExpensesValue}
-					oninput={(e) => handleEnkExpensesChange(e.currentTarget.valueAsNumber)}
-					placeholder="0"
-					min="0"
-				/>
-				<span class="text-muted" style="font-size: 0.8rem; margin-top: var(--space-xs); display: block;">
-					Utgifter knyttet til oppdragene dine
-				</span>
-			</div>
+			<fieldset class="form-fieldset">
+				<legend class="sr-only">Næringsutgifter</legend>
+				<div class="form-group">
+					<label class="form-label" for="enk-expenses">Totale utgifter (kr)</label>
+					<input
+						type="number"
+						id="enk-expenses"
+						value={enkExpensesValue}
+						oninput={(e) => handleEnkExpensesChange(e.currentTarget.valueAsNumber)}
+						placeholder="0"
+						min="0"
+					/>
+					<span class="text-muted" style="font-size: 0.8rem; margin-top: var(--space-xs); display: block;">
+						Utgifter knyttet til oppdragene dine
+					</span>
+				</div>
+			</fieldset>
 			<div class="popover-footer">
 				<button type="button" class="btn-primary" onclick={closeUtgifterPopover}>Ferdig</button>
 			</div>
 		</div>
 	{/if}
 
-	<!-- Oppdrag Popover -->
-	{#if showOppdragPopover}
-		<button type="button" class="popover-backdrop" onclick={closeOppdragPopover} aria-label="Lukk"></button>
-		<div class="popover popover-lg">
+	<!-- Add Oppdrag Popover -->
+	{#if showAddOppdragPopover}
+		<button type="button" class="popover-backdrop" onclick={closeAddOppdragPopover} aria-label="Lukk"></button>
+		<div class="popover popover-lg" role="dialog" aria-labelledby="add-oppdrag-heading">
 			<div class="popover-header">
-				<h3>Administrer oppdrag</h3>
-				<button type="button" class="btn-icon" onclick={closeOppdragPopover}>✕</button>
+				<h3 id="add-oppdrag-heading">Legg til oppdrag</h3>
+				<button type="button" class="btn-icon" onclick={closeAddOppdragPopover} aria-label="Lukk">&#10005;</button>
 			</div>
 
-			{#if getFreelanceIncomes().length > 0}
-				<div class="popover-list">
-					{#each getFreelanceIncomes() as freelance (freelance.id)}
-						<div class="popover-list-item" class:editing={editingFreelanceId === freelance.id}>
-							<div class="popover-list-info">
-								<span class="popover-list-name">{freelance.client}</span>
-								<span class="popover-list-details text-muted">
-									{freelance.description ? `${freelance.description} · ` : ''}{formatCurrency(freelance.amount)} + {formatCurrency(freelance.mva)} MVA
-								</span>
-							</div>
-							<div class="popover-list-actions">
-								<button
-									type="button"
-									class="btn-icon-sm"
-									onclick={() => startEditFreelance(freelance)}
-									aria-label="Rediger {freelance.client}"
-								>
-									✎
-								</button>
-								<button
-									type="button"
-									class="btn-icon-sm"
-									onclick={() => removeFreelanceIncome(freelance.id)}
-									aria-label="Fjern {freelance.client}"
-								>
-									✕
-								</button>
-							</div>
-						</div>
-					{/each}
-				</div>
-			{/if}
-
-			<form class="popover-form" onsubmit={handleOppdragSubmit}>
-				<h4 class="popover-form-title">{editingFreelanceId ? 'Rediger' : 'Legg til nytt'}</h4>
-				<div class="form-group">
-					<label class="form-label" for="freelance-client">Oppdragsgiver</label>
-					<input
-						type="text"
-						id="freelance-client"
-						bind:value={newFreelanceClient}
-						placeholder="F.eks. Kunde AS..."
-					/>
-				</div>
-				<div class="form-group">
-					<label class="form-label" for="freelance-description">Kort beskrivelse</label>
-					<input
-						type="text"
-						id="freelance-description"
-						bind:value={newFreelanceDescription}
-						placeholder="F.eks. Webutvikling..."
-					/>
-				</div>
-				<div class="form-group">
-					<label class="form-label" for="freelance-amount">Beløp eks. MVA (kr)</label>
-					<input
-						type="number"
-						id="freelance-amount"
-						bind:value={newFreelanceAmount}
-						placeholder="0"
-						min="0"
-					/>
-				</div>
-				<div class="popover-actions">
-					{#if editingFreelanceId}
-						<button type="button" class="btn-secondary" onclick={cancelEditFreelance}>Avbryt redigering</button>
-					{/if}
-					<button type="submit" class="btn-primary">{editingFreelanceId ? 'Oppdater' : 'Legg til'}</button>
-				</div>
+			<form class="popover-form" onsubmit={handleAddOppdragSubmit}>
+				<fieldset class="form-fieldset">
+					<div class="form-group">
+						<label class="form-label" for="add-freelance-client">Oppdragsgiver</label>
+						<input
+							type="text"
+							id="add-freelance-client"
+							bind:value={newFreelanceClient}
+							placeholder="F.eks. Kunde AS..."
+						/>
+					</div>
+					<div class="form-group">
+						<label class="form-label" for="add-freelance-description">Kort beskrivelse</label>
+						<input
+							type="text"
+							id="add-freelance-description"
+							bind:value={newFreelanceDescription}
+							placeholder="F.eks. Webutvikling..."
+						/>
+					</div>
+					<div class="form-group">
+						<label class="form-label" for="add-freelance-amount">Beløp eks. MVA (kr)</label>
+						<input
+							type="number"
+							id="add-freelance-amount"
+							bind:value={newFreelanceAmount}
+							placeholder="0"
+							min="0"
+						/>
+					</div>
+					<div class="popover-actions">
+						<button type="button" class="btn-secondary" onclick={closeAddOppdragPopover}>Avbryt</button>
+						<button type="submit" class="btn-primary">Legg til</button>
+					</div>
+				</fieldset>
 			</form>
+		</div>
+	{/if}
 
-			<div class="popover-footer">
-				<button type="button" class="btn-secondary" onclick={closeOppdragPopover}>Lukk</button>
+	<!-- Edit Oppdrag Popover -->
+	{#if showEditOppdragPopover && editingFreelanceId}
+		{@const editingFreelance = getFreelanceIncomes().find(f => f.id === editingFreelanceId)}
+		<button type="button" class="popover-backdrop" onclick={closeEditOppdragPopover} aria-label="Lukk"></button>
+		<div class="popover popover-lg" role="dialog" aria-labelledby="edit-oppdrag-heading">
+			<div class="popover-header">
+				<h3 id="edit-oppdrag-heading">Rediger {editingFreelance?.client ?? 'oppdrag'}</h3>
+				<button type="button" class="btn-icon" onclick={closeEditOppdragPopover} aria-label="Lukk">&#10005;</button>
 			</div>
+
+			<form class="popover-form" onsubmit={handleEditOppdragSubmit}>
+				<fieldset class="form-fieldset">
+					<div class="form-group">
+						<label class="form-label" for="edit-freelance-client">Oppdragsgiver</label>
+						<input
+							type="text"
+							id="edit-freelance-client"
+							bind:value={newFreelanceClient}
+							placeholder="F.eks. Kunde AS..."
+						/>
+					</div>
+					<div class="form-group">
+						<label class="form-label" for="edit-freelance-description">Kort beskrivelse</label>
+						<input
+							type="text"
+							id="edit-freelance-description"
+							bind:value={newFreelanceDescription}
+							placeholder="F.eks. Webutvikling..."
+						/>
+					</div>
+					<div class="form-group">
+						<label class="form-label" for="edit-freelance-amount">Beløp eks. MVA (kr)</label>
+						<input
+							type="number"
+							id="edit-freelance-amount"
+							bind:value={newFreelanceAmount}
+							placeholder="0"
+							min="0"
+						/>
+					</div>
+					<div class="popover-actions">
+						<button type="button" class="btn-secondary" onclick={closeEditOppdragPopover}>Avbryt</button>
+						<button type="submit" class="btn-primary">Oppdater</button>
+					</div>
+				</fieldset>
+			</form>
 		</div>
 	{/if}
 </div>
 
 <style>
-	/* Inntekter Grid */
+	/* Inntekter Grid - Intrinsic layout */
 	.inntekter-grid {
 		display: grid;
-		grid-template-columns: 1fr 1fr;
+		grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
 		gap: var(--space-lg);
-	}
-
-	@media (max-width: 768px) {
-		.inntekter-grid {
-			grid-template-columns: 1fr;
-		}
 	}
 
 	.inntekt-card {
@@ -867,19 +1493,89 @@
 
 	.inntekt-row {
 		display: grid;
-		grid-template-columns: 1fr auto;
-		gap: var(--space-md);
+		grid-template-columns: 1fr auto auto;
+		gap: var(--space-sm);
+		align-items: center;
 		padding: var(--space-xs) 0;
 		font-size: 0.9rem;
 	}
 
-	.inntekt-total {
+	.inntekt-name {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.inntekt-actions {
 		display: flex;
-		justify-content: space-between;
+		gap: 2px;
+		opacity: 0.5;
+		transition: opacity var(--duration-fast);
+	}
+
+	.inntekt-row:hover .inntekt-actions {
+		opacity: 1;
+	}
+
+	.inntekt-amount {
+		text-align: right;
+	}
+
+	.btn-icon-danger:hover {
+		color: var(--color-danger);
+	}
+
+	.inntekt-total {
+		display: grid;
+		grid-template-columns: 1fr auto;
+		gap: var(--space-md);
 		padding: var(--space-sm) 0;
 		margin-top: var(--space-md);
 		border-top: 1px solid var(--color-border);
 		font-weight: 600;
+	}
+
+	.lonn-summary {
+		margin-top: var(--space-md);
+		padding-top: var(--space-md);
+		border-top: 1px solid var(--color-border);
+	}
+
+	.lonn-row {
+		display: grid;
+		grid-template-columns: 1fr auto;
+		gap: var(--space-md);
+		padding: var(--space-xs) 0;
+	}
+
+	.lonn-row:first-child {
+		font-weight: 600;
+	}
+
+	.skattetrekk-row {
+		color: var(--color-text-muted);
+	}
+
+	.netto-row {
+		margin-top: var(--space-xs);
+		padding-top: var(--space-sm);
+		border-top: 1px solid var(--color-border);
+		font-weight: 600;
+	}
+
+	.netto-month-row {
+		font-size: 0.85rem;
+		font-weight: 400;
+		color: var(--color-text-muted);
+	}
+
+	.feriepenger-row {
+		margin-top: var(--space-sm);
+		padding-top: var(--space-sm);
+		border-top: 1px solid var(--color-border);
+		color: var(--color-text-muted);
+		font-weight: 500;
 	}
 
 	.naering-summary {
@@ -889,8 +1585,9 @@
 	}
 
 	.summary-line {
-		display: flex;
-		justify-content: space-between;
+		display: grid;
+		grid-template-columns: 1fr auto;
+		gap: var(--space-md);
 		padding: var(--space-xs) 0;
 	}
 
@@ -899,8 +1596,9 @@
 	}
 
 	.mva-line {
-		display: flex;
-		justify-content: space-between;
+		display: grid;
+		grid-template-columns: 1fr auto;
+		gap: var(--space-md);
 		padding: var(--space-sm) 0;
 		margin-top: var(--space-sm);
 		border-top: 1px solid var(--color-border);
@@ -925,21 +1623,6 @@
 		color: var(--color-primary);
 	}
 
-	.btn-utgifter {
-		background: none;
-		border: none;
-		padding: 0;
-		font: inherit;
-		color: var(--color-primary);
-		cursor: pointer;
-		text-decoration: underline;
-		text-underline-offset: 2px;
-	}
-
-	.btn-utgifter:hover {
-		color: var(--color-primary-hover);
-	}
-
 	/* Skatteberegning Section */
 	.personinntekt-summary {
 		padding-bottom: var(--space-lg);
@@ -948,8 +1631,9 @@
 	}
 
 	.personinntekt-row {
-		display: flex;
-		justify-content: space-between;
+		display: grid;
+		grid-template-columns: 1fr auto;
+		gap: var(--space-md);
 		font-size: 1.25rem;
 		font-weight: 700;
 	}
@@ -991,9 +1675,10 @@
 	}
 
 	.tax-calc-row {
-		display: flex;
-		justify-content: space-between;
+		display: grid;
+		grid-template-columns: 1fr auto;
 		align-items: center;
+		gap: var(--space-md);
 		padding: var(--space-xs) 0;
 	}
 
@@ -1007,8 +1692,9 @@
 	}
 
 	.tax-subtotal {
-		display: flex;
-		justify-content: space-between;
+		display: grid;
+		grid-template-columns: 1fr auto;
+		gap: var(--space-md);
 		padding: var(--space-sm) 0;
 		margin-top: var(--space-xs);
 		border-top: 1px solid var(--color-border);
@@ -1038,141 +1724,77 @@
 	}
 
 	.total-tax-component {
-		display: flex;
-		justify-content: space-between;
+		display: grid;
+		grid-template-columns: 1fr auto;
+		gap: var(--space-md);
 		padding: var(--space-xs) 0;
 	}
 
 	.total-tax-row {
+		display: grid;
+		grid-template-columns: 1fr auto;
+		gap: var(--space-md);
 		margin-top: var(--space-sm);
 		padding-top: var(--space-sm);
 		border-top: 1px solid var(--color-border);
-		display: flex;
-		justify-content: space-between;
 		font-size: 1.25rem;
 		font-weight: 700;
 	}
 
 	.effective-rate-row {
-		display: flex;
-		justify-content: space-between;
+		display: grid;
+		grid-template-columns: 1fr auto;
+		gap: var(--space-md);
 		margin-top: var(--space-xs);
 		color: var(--color-text-muted);
 	}
 
-	/* Oppgjør Section */
-	.oppgjor-card {
-		background: var(--color-surface);
-	}
-
 	.oppgjor-section {
-		padding: var(--space-lg) 0;
-		border-bottom: 1px solid var(--color-border);
-	}
-
-	.oppgjor-section:first-child {
-		padding-top: 0;
-	}
-
-	.oppgjor-section:last-child {
-		border-bottom: none;
-		padding-bottom: 0;
-	}
-
-	.oppgjor-title {
-		font-size: 0.85rem;
-		font-weight: 600;
-		text-transform: uppercase;
-		letter-spacing: 0.05em;
-		color: var(--color-text-muted);
-		margin-bottom: var(--space-md);
-	}
-
-	.trekkprosent-display {
-		margin-bottom: var(--space-md);
-	}
-
-	.trekkprosent-button {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		width: 100%;
-		padding: var(--space-sm) var(--space-md);
-		background: var(--color-bg);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-		cursor: pointer;
-		font: inherit;
-	}
-
-	.trekkprosent-button:hover {
-		border-color: var(--color-primary);
-	}
-
-	.trekkprosent-label {
-		font-size: 0.9rem;
-		color: var(--color-text-muted);
-	}
-
-	.trekkprosent-value {
-		font-size: 1.25rem;
-		font-weight: 600;
-		font-family: var(--font-mono);
+		margin-top: var(--space-lg);
+		padding-top: var(--space-lg);
+		border-top: 1px solid var(--color-border);
 	}
 
 	.oppgjor-row {
-		display: flex;
-		justify-content: space-between;
-		padding: var(--space-xs) 0;
+		display: grid;
+		grid-template-columns: 1fr auto;
+		gap: var(--space-md);
+		font-size: 1.25rem;
+		font-weight: 700;
 	}
 
-	.oppgjor-row.deduction {
-		color: var(--color-text-muted);
-	}
-
-	.oppgjor-divider {
-		border-top: 1px solid var(--color-border);
-		margin: var(--space-sm) 0;
-	}
-
-	.result-row {
-		font-weight: 600;
-		font-size: 1.1rem;
-	}
-
-	.result-row.refund {
+	.oppgjor-row.refund {
 		color: var(--color-success);
 	}
 
-	.result-row.restskatt {
-		color: var(--color-warning);
+	.oppgjor-row.restskatt {
+		color: var(--color-danger);
 	}
 
-	.netto-section {
-		background: var(--color-bg);
-		margin: 0 calc(-1 * var(--space-lg)) calc(-1 * var(--space-lg));
-		padding: var(--space-lg);
-		border-radius: 0 0 var(--radius-lg) var(--radius-lg);
-	}
-
-	.netto-total {
+	.trekkprosent-row {
+		display: grid;
+		grid-template-columns: 1fr auto;
+		align-items: center;
+		gap: var(--space-md);
+		padding: var(--space-sm) 0;
 		margin-top: var(--space-sm);
 	}
 
-	.netto-row {
-		display: flex;
-		justify-content: space-between;
-		padding: var(--space-xs) 0;
-	}
-
-	.netto-row:first-child {
-		font-size: 1.25rem;
-		font-weight: 600;
-		color: var(--color-success);
-	}
-
-	.netto-row.monthly {
+	.btn-trekkprosent {
+		width: max-content;
+		background: none;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-sm);
+		padding: var(--space-xs) var(--space-sm);
 		color: var(--color-text-muted);
+		cursor: pointer;
+		font-size: 0.875rem;
+		font-family: inherit;
+	}
+
+	.btn-trekkprosent:hover {
+		border-color: var(--color-text-muted);
+		color: var(--color-text);
 	}
 
 	/* Trekk method section */
@@ -1196,7 +1818,7 @@
 		font-size: 0.9rem;
 		cursor: pointer;
 		color: var(--color-text-muted);
-		transition: background 0.15s, color 0.15s;
+		transition: background var(--duration-fast), color var(--duration-fast);
 	}
 
 	.tax-toggle-btn:first-child {
@@ -1285,139 +1907,5 @@
 		color: var(--color-text-muted);
 	}
 
-	/* Popover styles */
-	.popover-backdrop {
-		position: fixed;
-		inset: 0;
-		background: rgba(0, 0, 0, 0.5);
-		z-index: 100;
-		border: none;
-		cursor: pointer;
-	}
-
-	.popover {
-		position: fixed;
-		top: 50%;
-		left: 50%;
-		transform: translate(-50%, -50%);
-		background: var(--color-surface);
-		border-radius: var(--radius-lg);
-		box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-		padding: var(--space-lg);
-		width: 90%;
-		max-width: 400px;
-		max-height: 90vh;
-		overflow-y: auto;
-		z-index: 101;
-	}
-
-	.popover-lg {
-		max-width: 500px;
-	}
-
-	.popover-sm {
-		max-width: 320px;
-	}
-
-	.popover-header {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-bottom: var(--space-lg);
-	}
-
-	.popover-header h3 {
-		margin: 0;
-		font-size: 1.1rem;
-	}
-
-	.popover-form {
-		display: flex;
-		flex-direction: column;
-		gap: var(--space-md);
-	}
-
-	.form-row-2 {
-		display: grid;
-		grid-template-columns: 1fr 1fr;
-		gap: var(--space-md);
-	}
-
-	.popover-list {
-		margin-bottom: var(--space-lg);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius-md);
-	}
-
-	.popover-list-item {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		padding: var(--space-sm) var(--space-md);
-		border-bottom: 1px solid var(--color-border);
-	}
-
-	.popover-list-item:last-child {
-		border-bottom: none;
-	}
-
-	.popover-list-item.editing {
-		background: var(--color-bg);
-	}
-
-	.popover-list-info {
-		display: flex;
-		flex-direction: column;
-		gap: 2px;
-	}
-
-	.popover-list-name {
-		font-weight: 500;
-	}
-
-	.popover-list-details {
-		font-size: 0.85rem;
-	}
-
-	.popover-list-actions {
-		display: flex;
-		gap: var(--space-xs);
-	}
-
-	.popover-form-title {
-		font-size: 0.9rem;
-		font-weight: 600;
-		margin: 0 0 var(--space-md) 0;
-		padding-top: var(--space-md);
-		border-top: 1px solid var(--color-border);
-	}
-
-	.popover-actions {
-		display: flex;
-		justify-content: flex-end;
-		gap: var(--space-sm);
-		margin-top: var(--space-md);
-	}
-
-	.popover-footer {
-		margin-top: var(--space-lg);
-		padding-top: var(--space-md);
-		border-top: 1px solid var(--color-border);
-		display: flex;
-		justify-content: flex-end;
-	}
-
-	.btn-icon-sm {
-		background: none;
-		border: none;
-		padding: var(--space-xs);
-		cursor: pointer;
-		color: var(--color-text-muted);
-		font-size: 0.85rem;
-		line-height: 1;
-	}
-
-	.btn-icon-sm:hover {
-		color: var(--color-primary);
-	}
+	/* Popover styles are now in app.css */
 </style>

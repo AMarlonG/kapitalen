@@ -21,34 +21,34 @@
 	</header>
 
 	<!-- Financial Summary -->
-	<section class="section">
-		<h2 class="section-title" style="margin-bottom: var(--space-md);">Månedlig oversikt</h2>
-		<div class="summary-grid">
+	<section class="section" aria-labelledby="summary-heading">
+		<h2 id="summary-heading" class="section-title" style="margin-bottom: var(--space-md);">Månedlig oversikt</h2>
+		<dl class="summary-grid">
 			<div class="summary-card">
-				<div class="summary-label">Brutto inntekt</div>
-				<div class="summary-value">{formatCurrency(getTotalGrossIncome())}</div>
+				<dt class="summary-label">Brutto inntekt</dt>
+				<dd class="summary-value">{formatCurrency(getTotalGrossIncome())}</dd>
 			</div>
 			<div class="summary-card">
-				<div class="summary-label">Netto inntekt</div>
-				<div class="summary-value">{formatCurrency(getTotalNetIncome())}</div>
+				<dt class="summary-label">Netto inntekt</dt>
+				<dd class="summary-value">{formatCurrency(getTotalNetIncome())}</dd>
 			</div>
 			<div class="summary-card">
-				<div class="summary-label">Utgifter</div>
-				<div class="summary-value">{formatCurrency(getTotalExpenses())}</div>
+				<dt class="summary-label">Utgifter</dt>
+				<dd class="summary-value">{formatCurrency(getTotalExpenses())}</dd>
 			</div>
 			<div class="summary-card">
-				<div class="summary-label">Sparing</div>
-				<div class="summary-value" class:text-success={getMonthlySavings() >= 0} class:text-danger={getMonthlySavings() < 0}>
+				<dt class="summary-label">Sparing</dt>
+				<dd class="summary-value" class:text-success={getMonthlySavings() >= 0} class:text-danger={getMonthlySavings() < 0}>
 					{formatCurrency(getMonthlySavings())}
-				</div>
+				</dd>
 			</div>
 			<div class="summary-card">
-				<div class="summary-label">Sparerate</div>
-				<div class="summary-value" class:text-success={getSavingsRate() >= 0} class:text-danger={getSavingsRate() < 0}>
+				<dt class="summary-label">Sparerate</dt>
+				<dd class="summary-value" class:text-success={getSavingsRate() >= 0} class:text-danger={getSavingsRate() < 0}>
 					{formatPercent(getSavingsRate())}
-				</div>
+				</dd>
 			</div>
-		</div>
+		</dl>
 	</section>
 
 	<!-- Quick Actions -->
@@ -71,7 +71,7 @@
 	.quick-action {
 		text-decoration: none;
 		color: inherit;
-		transition: transform 0.15s ease, box-shadow 0.15s ease;
+		transition: transform var(--duration-fast) ease, box-shadow var(--duration-fast) ease;
 	}
 
 	.quick-action:hover {
