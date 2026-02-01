@@ -7,7 +7,6 @@ import type {
 	TaxMethod,
 	AdjustmentType,
 	ExpenseCategory,
-	IncomeAdjustment,
 	Income,
 	FreelanceIncome,
 	Expense,
@@ -42,12 +41,76 @@ function migrateIncomes(stored: Income[]): Income[] {
 	}));
 }
 
+// Legacy expense type for migration
+interface LegacyExpense {
+	id: string;
+	name: string;
+	amount?: number;
+	monthlyAmounts?: number[];
+	category: string;
+	frequency?: 'monthly' | 'yearly';
+}
+
+function migrateExpenses(stored: LegacyExpense[]): Expense[] {
+	// Map old categories to new categories
+	const categoryMapping: Record<string, ExpenseCategory> = {
+		bolig: 'faste-utgifter',
+		transport: 'faste-utgifter',
+		forsikring: 'faste-utgifter',
+		mat: 'mat-inne',
+		annet: 'diverse',
+		// Keep new categories as-is
+		'faste-utgifter': 'faste-utgifter',
+		abonnement: 'abonnement',
+		'mat-inne': 'mat-inne',
+		'mat-ute': 'mat-ute',
+		diverse: 'diverse'
+	};
+
+	return stored.map((expense) => {
+		const category = categoryMapping[expense.category] ?? 'diverse';
+
+		// Already migrated to new format
+		if (expense.monthlyAmounts && expense.monthlyAmounts.length === 12) {
+			return {
+				id: expense.id,
+				name: expense.name,
+				monthlyAmounts: expense.monthlyAmounts,
+				category
+			};
+		}
+
+		// Migrate from old format (amount + frequency)
+		const amount = expense.amount ?? 0;
+		const frequency = expense.frequency ?? 'monthly';
+		let monthlyAmounts: number[];
+
+		if (frequency === 'yearly') {
+			// Yearly amount: divide by 12 for each month
+			const monthlyValue = Math.round((amount / 12) * 100) / 100;
+			monthlyAmounts = Array(12).fill(monthlyValue);
+		} else {
+			// Monthly amount: same value for all months
+			monthlyAmounts = Array(12).fill(amount);
+		}
+
+		return {
+			id: expense.id,
+			name: expense.name,
+			monthlyAmounts,
+			category
+		};
+	});
+}
+
 let incomes = $state<Income[]>(migrateIncomes(loadFromStorage(STORAGE_KEYS.incomes, [])));
 let freelanceIncomes = $state<FreelanceIncome[]>(loadFromStorage(STORAGE_KEYS.freelance, []));
-let expenses = $state<Expense[]>(loadFromStorage(STORAGE_KEYS.expenses, []));
+let expenses = $state<Expense[]>(migrateExpenses(loadFromStorage(STORAGE_KEYS.expenses, [])));
 let enkExpenses = $state<number>(loadFromStorage(STORAGE_KEYS.enkExpenses, 0));
 let globalTaxMethod = $state<TaxMethod>(loadFromStorage(STORAGE_KEYS.taxMethod, 'tabelltrekk'));
-let globalTaxPercentage = $state<number>(loadFromStorage(STORAGE_KEYS.taxPercentage, DEFAULT_TAX_PERCENTAGE));
+let globalTaxPercentage = $state<number>(
+	loadFromStorage(STORAGE_KEYS.taxPercentage, DEFAULT_TAX_PERCENTAGE)
+);
 
 // Rehydrate from localStorage on client before effects run
 // This prevents SSR defaults from overwriting real user data
@@ -55,7 +118,7 @@ if (browser) {
 	untrack(() => {
 		incomes = migrateIncomes(loadFromStorage(STORAGE_KEYS.incomes, []));
 		freelanceIncomes = loadFromStorage(STORAGE_KEYS.freelance, []);
-		expenses = loadFromStorage(STORAGE_KEYS.expenses, []);
+		expenses = migrateExpenses(loadFromStorage(STORAGE_KEYS.expenses, []));
 		enkExpenses = loadFromStorage(STORAGE_KEYS.enkExpenses, 0);
 		globalTaxMethod = loadFromStorage(STORAGE_KEYS.taxMethod, 'tabelltrekk');
 		globalTaxPercentage = loadFromStorage(STORAGE_KEYS.taxPercentage, DEFAULT_TAX_PERCENTAGE);
@@ -68,33 +131,51 @@ if (browser) {
 
 $effect.root(() => {
 	$effect(() => {
-		try { saveToStorage(STORAGE_KEYS.incomes, incomes); }
-		catch (e) { console.warn('Failed to save incomes:', e); }
+		try {
+			saveToStorage(STORAGE_KEYS.incomes, incomes);
+		} catch (e) {
+			console.warn('Failed to save incomes:', e);
+		}
 	});
 
 	$effect(() => {
-		try { saveToStorage(STORAGE_KEYS.freelance, freelanceIncomes); }
-		catch (e) { console.warn('Failed to save freelance incomes:', e); }
+		try {
+			saveToStorage(STORAGE_KEYS.freelance, freelanceIncomes);
+		} catch (e) {
+			console.warn('Failed to save freelance incomes:', e);
+		}
 	});
 
 	$effect(() => {
-		try { saveToStorage(STORAGE_KEYS.expenses, expenses); }
-		catch (e) { console.warn('Failed to save expenses:', e); }
+		try {
+			saveToStorage(STORAGE_KEYS.expenses, expenses);
+		} catch (e) {
+			console.warn('Failed to save expenses:', e);
+		}
 	});
 
 	$effect(() => {
-		try { saveToStorage(STORAGE_KEYS.enkExpenses, enkExpenses); }
-		catch (e) { console.warn('Failed to save ENK expenses:', e); }
+		try {
+			saveToStorage(STORAGE_KEYS.enkExpenses, enkExpenses);
+		} catch (e) {
+			console.warn('Failed to save ENK expenses:', e);
+		}
 	});
 
 	$effect(() => {
-		try { saveToStorage(STORAGE_KEYS.taxMethod, globalTaxMethod); }
-		catch (e) { console.warn('Failed to save tax method:', e); }
+		try {
+			saveToStorage(STORAGE_KEYS.taxMethod, globalTaxMethod);
+		} catch (e) {
+			console.warn('Failed to save tax method:', e);
+		}
 	});
 
 	$effect(() => {
-		try { saveToStorage(STORAGE_KEYS.taxPercentage, globalTaxPercentage); }
-		catch (e) { console.warn('Failed to save tax percentage:', e); }
+		try {
+			saveToStorage(STORAGE_KEYS.taxPercentage, globalTaxPercentage);
+		} catch (e) {
+			console.warn('Failed to save tax percentage:', e);
+		}
 	});
 });
 
@@ -128,8 +209,28 @@ export function getTotalNetIncome(): number {
 	}, 0);
 }
 
+export function getMonthlyExpenseAmount(expense: Expense): number {
+	const sum = expense.monthlyAmounts.reduce((a, b) => a + b, 0);
+	return sum / 12;
+}
+
+export function getYearlyExpenseAmount(expense: Expense): number {
+	return expense.monthlyAmounts.reduce((a, b) => a + b, 0);
+}
+
+export function expenseVaries(expense: Expense): boolean {
+	const first = expense.monthlyAmounts[0];
+	return expense.monthlyAmounts.some((amt) => amt !== first);
+}
+
 export function getTotalExpenses(): number {
-	return expenses.reduce((sum, e) => sum + e.amount, 0);
+	return expenses.reduce((sum, e) => sum + getMonthlyExpenseAmount(e), 0);
+}
+
+export function getMonthlyTotals(): number[] {
+	return Array.from({ length: 12 }, (_, monthIndex) =>
+		expenses.reduce((sum, e) => sum + e.monthlyAmounts[monthIndex], 0)
+	);
 }
 
 export function getExpensesByCategory(category: ExpenseCategory): Expense[] {
@@ -137,7 +238,7 @@ export function getExpensesByCategory(category: ExpenseCategory): Expense[] {
 }
 
 export function getCategoryTotal(category: ExpenseCategory): number {
-	return getExpensesByCategory(category).reduce((sum, e) => sum + e.amount, 0);
+	return getExpensesByCategory(category).reduce((sum, e) => sum + getMonthlyExpenseAmount(e), 0);
 }
 
 export function getMonthlySavings(): number {
@@ -180,7 +281,8 @@ export function addIncome(
 		yearlyAmount,
 		employeePercentage,
 		taxMethod,
-		customTaxPercentage: taxMethod === 'prosenttrekk' ? (customTaxPercentage ?? DEFAULT_TAX_PERCENTAGE) : undefined,
+		customTaxPercentage:
+			taxMethod === 'prosenttrekk' ? (customTaxPercentage ?? DEFAULT_TAX_PERCENTAGE) : undefined,
 		trekkprosent: taxMethod === 'tabelltrekk' ? trekkprosent : undefined,
 		periodType,
 		startDate: periodType === 'custom' ? startDate : undefined,
@@ -213,7 +315,8 @@ export function updateIncome(
 			yearlyAmount,
 			employeePercentage,
 			taxMethod,
-			customTaxPercentage: taxMethod === 'prosenttrekk' ? (customTaxPercentage ?? DEFAULT_TAX_PERCENTAGE) : undefined,
+			customTaxPercentage:
+				taxMethod === 'prosenttrekk' ? (customTaxPercentage ?? DEFAULT_TAX_PERCENTAGE) : undefined,
 			trekkprosent: taxMethod === 'tabelltrekk' ? trekkprosent : undefined,
 			periodType,
 			startDate: periodType === 'custom' ? startDate : undefined,
@@ -302,7 +405,12 @@ export function addFreelanceIncome(client: string, description: string, amount: 
 	freelanceIncomes.push({ id: generateId(), client, description, amount, mva });
 }
 
-export function updateFreelanceIncome(id: string, client: string, description: string, amount: number): void {
+export function updateFreelanceIncome(
+	id: string,
+	client: string,
+	description: string,
+	amount: number
+): void {
 	const index = freelanceIncomes.findIndex((f) => f.id === id);
 	if (index !== -1) {
 		const mva = amount * MVA_RATE;
@@ -321,14 +429,23 @@ export function removeFreelanceIncome(id: string): void {
 // EXPENSE CRUD
 // ============================================
 
-export function addExpense(name: string, amount: number, category: ExpenseCategory): void {
-	expenses.push({ id: generateId(), name, amount, category });
+export function addExpense(
+	name: string,
+	monthlyAmounts: number[],
+	category: ExpenseCategory
+): void {
+	expenses.push({ id: generateId(), name, monthlyAmounts, category });
 }
 
-export function updateExpense(id: string, name: string, amount: number, category: ExpenseCategory): void {
+export function updateExpense(
+	id: string,
+	name: string,
+	monthlyAmounts: number[],
+	category: ExpenseCategory
+): void {
 	const index = expenses.findIndex((e) => e.id === id);
 	if (index !== -1) {
-		expenses[index] = { ...expenses[index], name, amount, category };
+		expenses[index] = { ...expenses[index], name, monthlyAmounts, category };
 	}
 }
 
@@ -343,14 +460,30 @@ export function removeExpense(id: string): void {
 // STATE GETTERS/SETTERS
 // ============================================
 
-export function getIncomes(): Income[] { return incomes; }
-export function getFreelanceIncomes(): FreelanceIncome[] { return freelanceIncomes; }
-export function getExpenses(): Expense[] { return expenses; }
-export function getEnkExpenses(): number { return enkExpenses; }
-export function setEnkExpenses(amount: number): void { enkExpenses = Math.max(0, amount); }
-export function getGlobalTaxMethod(): TaxMethod { return globalTaxMethod; }
-export function setGlobalTaxMethod(method: TaxMethod): void { globalTaxMethod = method; }
-export function getGlobalTaxPercentage(): number { return globalTaxPercentage; }
+export function getIncomes(): Income[] {
+	return incomes;
+}
+export function getFreelanceIncomes(): FreelanceIncome[] {
+	return freelanceIncomes;
+}
+export function getExpenses(): Expense[] {
+	return expenses;
+}
+export function getEnkExpenses(): number {
+	return enkExpenses;
+}
+export function setEnkExpenses(amount: number): void {
+	enkExpenses = Math.max(0, amount);
+}
+export function getGlobalTaxMethod(): TaxMethod {
+	return globalTaxMethod;
+}
+export function setGlobalTaxMethod(method: TaxMethod): void {
+	globalTaxMethod = method;
+}
+export function getGlobalTaxPercentage(): number {
+	return globalTaxPercentage;
+}
 export function setGlobalTaxPercentage(percentage: number): void {
 	globalTaxPercentage = Math.max(0, Math.min(100, percentage));
 }

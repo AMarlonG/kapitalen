@@ -16,7 +16,7 @@ export type PeriodType = 'fullYear' | 'custom';
 export type FerieUker = '4+1' | '5';
 
 // Expense categories
-export type ExpenseCategory = 'bolig' | 'transport' | 'mat' | 'forsikring' | 'annet';
+export type ExpenseCategory = 'faste-utgifter' | 'abonnement' | 'mat-inne' | 'mat-ute' | 'diverse';
 
 /**
  * Income adjustment (bonus, overtime, etc.)
@@ -61,12 +61,12 @@ export interface FreelanceIncome {
 }
 
 /**
- * Monthly expense
+ * Expense with monthly amounts
  */
 export interface Expense {
 	id: string;
 	name: string;
-	amount: number;
+	monthlyAmounts: number[]; // 12 values: index 0 = Jan, index 11 = Dec
 	category: ExpenseCategory;
 }
 
@@ -152,9 +152,9 @@ export interface ExpenseCategoryOption {
  * Expense categories list
  */
 export const EXPENSE_CATEGORIES: ExpenseCategoryOption[] = [
-	{ value: 'bolig', label: 'Bolig' },
-	{ value: 'transport', label: 'Transport' },
-	{ value: 'mat', label: 'Mat og dagligvarer' },
-	{ value: 'forsikring', label: 'Forsikring' },
-	{ value: 'annet', label: 'Annet' }
+	{ value: 'faste-utgifter', label: 'Faste utgifter' },
+	{ value: 'abonnement', label: 'Abonnement' },
+	{ value: 'mat-inne', label: 'Mat - Inne' },
+	{ value: 'mat-ute', label: 'Mat - Ute' },
+	{ value: 'diverse', label: 'Diverse' }
 ];

@@ -23,7 +23,6 @@
 	import {
 		getMonthsWorked,
 		getProratedYearlyAmount,
-		calculateFeriepenger,
 		getTotalAdjustments,
 		getAdjustmentsForFeriepenger
 	} from '$lib/services/tax-calculator';
@@ -77,7 +76,7 @@
 	// Auto-open sections when editing employer with non-default values
 	$effect(() => {
 		if (editingIncomeId) {
-			const income = getIncomes().find(i => i.id === editingIncomeId);
+			const income = getIncomes().find((i) => i.id === editingIncomeId);
 			showAdjustments = (income?.adjustments?.length ?? 0) > 0;
 			// Open feriepenger if non-default values
 			showFeriepenger = income?.ferieUker === '4+1' || income?.isOver60 === true;
@@ -104,7 +103,7 @@
 		if (newIncomeName.trim() && newIncomeYearlyAmount && newIncomeYearlyAmount > 0) {
 			if (editingIncomeId) {
 				// Preserve existing tax settings when editing
-				const existing = getIncomes().find(i => i.id === editingIncomeId);
+				const existing = getIncomes().find((i) => i.id === editingIncomeId);
 				updateIncome(
 					editingIncomeId,
 					newIncomeName.trim(),
@@ -253,10 +252,19 @@
 		event.preventDefault();
 		if (newFreelanceClient.trim() && newFreelanceAmount && newFreelanceAmount > 0) {
 			if (editingFreelanceId) {
-				updateFreelanceIncome(editingFreelanceId, newFreelanceClient.trim(), newFreelanceDescription.trim(), newFreelanceAmount);
+				updateFreelanceIncome(
+					editingFreelanceId,
+					newFreelanceClient.trim(),
+					newFreelanceDescription.trim(),
+					newFreelanceAmount
+				);
 				editingFreelanceId = null;
 			} else {
-				addFreelanceIncome(newFreelanceClient.trim(), newFreelanceDescription.trim(), newFreelanceAmount);
+				addFreelanceIncome(
+					newFreelanceClient.trim(),
+					newFreelanceDescription.trim(),
+					newFreelanceAmount
+				);
 			}
 			newFreelanceClient = '';
 			newFreelanceDescription = '';
@@ -264,7 +272,12 @@
 		}
 	}
 
-	function startEditFreelance(freelance: { id: string; client: string; description: string; amount: number }) {
+	function startEditFreelance(freelance: {
+		id: string;
+		client: string;
+		description: string;
+		amount: number;
+	}) {
 		editingFreelanceId = freelance.id;
 		newFreelanceClient = freelance.client;
 		newFreelanceDescription = freelance.description;
@@ -323,7 +336,7 @@
 	}
 
 	function updateIncomeTrekkprosent(incomeId: string, trekkprosent: number | undefined) {
-		const income = getIncomes().find(i => i.id === incomeId);
+		const income = getIncomes().find((i) => i.id === incomeId);
 		if (income) {
 			updateIncome(
 				incomeId,
@@ -372,7 +385,12 @@
 		cancelEditFreelance();
 	}
 
-	function openEditOppdragPopover(freelance: { id: string; client: string; description: string; amount: number }) {
+	function openEditOppdragPopover(freelance: {
+		id: string;
+		client: string;
+		description: string;
+		amount: number;
+	}) {
 		startEditFreelance(freelance);
 		showEditOppdragPopover = true;
 	}
@@ -411,16 +429,17 @@
 
 	// Computed brutto for the add/edit income form (base salary only)
 	const formComputedBrutto = $derived.by(() => {
-		const fullYearAmount = (newIncomeYearlyAmount ?? 0) * newIncomePercentage / 100;
+		const fullYearAmount = ((newIncomeYearlyAmount ?? 0) * newIncomePercentage) / 100;
 
 		if (newIncomePeriodType === 'custom' && newIncomeStartDate && newIncomeEndDate) {
 			const start = new Date(newIncomeStartDate);
 			const end = new Date(newIncomeEndDate);
-			const months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()) + 1;
+			const months =
+				(end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth()) + 1;
 			const clampedMonths = Math.min(12, Math.max(1, months));
 
 			if (clampedMonths < 12) {
-				const proratedAmount = fullYearAmount * clampedMonths / 12;
+				const proratedAmount = (fullYearAmount * clampedMonths) / 12;
 				return proratedAmount;
 			}
 		}
@@ -431,14 +450,14 @@
 	// Get current adjustments total for the form
 	const formAdjustmentsTotal = $derived.by(() => {
 		if (!editingIncomeId) return 0;
-		const income = getIncomes().find(i => i.id === editingIncomeId);
+		const income = getIncomes().find((i) => i.id === editingIncomeId);
 		return income ? getTotalAdjustments(income) : 0;
 	});
 
 	// Get adjustments that affect feriepenger for the form
 	const formAdjustmentsForFerie = $derived.by(() => {
 		if (!editingIncomeId) return 0;
-		const income = getIncomes().find(i => i.id === editingIncomeId);
+		const income = getIncomes().find((i) => i.id === editingIncomeId);
 		return income ? getAdjustmentsForFeriepenger(income) : 0;
 	});
 
@@ -449,7 +468,7 @@
 	const formComputedFeriepenger = $derived.by(() => {
 		const RATES = {
 			'4+1': { standard: 0.102, over60: 0.125 },
-			'5':   { standard: 0.12,  over60: 0.143 }
+			'5': { standard: 0.12, over60: 0.143 }
 		};
 		const rates = RATES[newIncomeFerieUker];
 		const rate = newIncomeIsOver60 ? rates.over60 : rates.standard;
@@ -460,7 +479,7 @@
 	const formFeriepengerRate = $derived.by(() => {
 		const RATES = {
 			'4+1': { standard: 10.2, over60: 12.5 },
-			'5':   { standard: 12.0, over60: 14.3 }
+			'5': { standard: 12.0, over60: 14.3 }
 		};
 		const rates = RATES[newIncomeFerieUker];
 		return newIncomeIsOver60 ? rates.over60 : rates.standard;
@@ -471,10 +490,11 @@
 		if (getGlobalTaxMethod() === 'prosenttrekk') {
 			return getGlobalTaxPercentage();
 		}
-		const allHaveTrekkprosent = getIncomes().length > 0 &&
-			getIncomes().every(i => i.trekkprosent !== undefined && i.trekkprosent > 0);
+		const allHaveTrekkprosent =
+			getIncomes().length > 0 &&
+			getIncomes().every((i) => i.trekkprosent !== undefined && i.trekkprosent > 0);
 		if (allHaveTrekkprosent && combinedTax.lonnGross > 0) {
-			return Math.round(combinedTax.skattetrekk / combinedTax.lonnGross * 100);
+			return Math.round((combinedTax.skattetrekk / combinedTax.lonnGross) * 100);
 		}
 		return combinedTax.lonnGross > 0
 			? Math.round((combinedTax.skattetrekk / combinedTax.lonnGross) * 100)
@@ -542,11 +562,7 @@
 							</div>
 						{/each}
 					{/if}
-					<button
-						type="button"
-						class="btn-add-item"
-						onclick={openAddPopover}
-					>
+					<button type="button" class="btn-add-item" onclick={openAddPopover}>
 						+ Legg til arbeidsgiver
 					</button>
 				</div>
@@ -569,11 +585,15 @@
 						</div>
 						<div class="lonn-row netto-row">
 							<dt>Netto lønn</dt>
-							<dd class="font-mono">{formatCurrency(combinedTax.lonnGross - combinedTax.skattetrekk)}</dd>
+							<dd class="font-mono">
+								{formatCurrency(combinedTax.lonnGross - combinedTax.skattetrekk)}
+							</dd>
 						</div>
 						<div class="lonn-row netto-month-row">
 							<dt>Utbetalt per måned</dt>
-							<dd class="font-mono">{formatCurrency((combinedTax.lonnGross - combinedTax.skattetrekk) / 12)}</dd>
+							<dd class="font-mono">
+								{formatCurrency((combinedTax.lonnGross - combinedTax.skattetrekk) / 12)}
+							</dd>
 						</div>
 						{#if combinedTax.totalFeriepenger > 0}
 							<div class="lonn-row feriepenger-row">
@@ -620,11 +640,7 @@
 							</div>
 						{/each}
 					{/if}
-					<button
-						type="button"
-						class="btn-add-item"
-						onclick={openAddOppdragPopover}
-					>
+					<button type="button" class="btn-add-item" onclick={openAddOppdragPopover}>
 						+ Legg til oppdrag
 					</button>
 				</div>
@@ -690,73 +706,101 @@
 					<!-- TRYGDEAVGIFT -->
 					<div class="tax-section">
 						<h3 class="tax-section-title">Trygdeavgift</h3>
-					{#if combinedTax.lonnGross > 0}
-						<div class="tax-calc-row">
-							<span class="tax-calc-label">Lønn: {formatCurrency(combinedTax.lonnGross)} × 7,6%</span>
-							<span class="font-mono">{formatCurrency(combinedTax.trygdeavgiftLonn)}</span>
-						</div>
-					{/if}
-					{#if combinedTax.enkNet > 0}
-						<div class="tax-calc-row">
-							<span class="tax-calc-label">Næringsinntekt: {formatCurrency(combinedTax.enkNet)} × 10,8%</span>
-							<span class="font-mono">{formatCurrency(combinedTax.trygdeavgiftEnk)}</span>
-						</div>
-					{/if}
-					<div class="tax-subtotal">
-						<span></span>
-						<span class="font-mono">{formatCurrency(combinedTax.trygdeavgiftLonn + combinedTax.trygdeavgiftEnk)}</span>
-					</div>
-				</div>
-
-				<!-- TRINNSKATT -->
-				<div class="tax-section">
-					<h3 class="tax-section-title">Trinnskatt <span class="tax-basis">(samlet personinntekt: {formatCurrency(combinedTax.totalPersoninntekt)})</span></h3>
-					{#if combinedTax.trinnskattBreakdown.length > 0}
-						{#each combinedTax.trinnskattBreakdown as bracket}
-							{@const lowerThreshold = TRINNSKATT_BRACKETS[bracket.bracket].threshold}
-							{@const upperThreshold = Math.min(TRINNSKATT_BRACKETS[bracket.bracket + 1]?.threshold ?? Infinity, combinedTax.totalPersoninntekt)}
+						{#if combinedTax.lonnGross > 0}
 							<div class="tax-calc-row">
-								<span class="tax-calc-label">Trinn {bracket.bracket}: <span class="text-muted">{formatCurrency(lowerThreshold)} – {formatCurrency(upperThreshold)} ({formatCurrency(bracket.taxableAmount)} × {(TRINNSKATT_BRACKETS[bracket.bracket].rate * 100).toFixed(1)}%)</span></span>
-								<span class="font-mono">{formatCurrency(bracket.amount)}</span>
+								<span class="tax-calc-label"
+									>Lønn: {formatCurrency(combinedTax.lonnGross)} × 7,6%</span
+								>
+								<span class="font-mono">{formatCurrency(combinedTax.trygdeavgiftLonn)}</span>
 							</div>
-						{/each}
-					{:else}
-						<div class="tax-calc-row bracket-row text-muted">
-							<span class="tax-calc-label">Under trinn 1-grensen ({formatCurrency(TRINNSKATT_BRACKETS[1].threshold)})</span>
-							<span class="font-mono">{formatCurrency(0)}</span>
+						{/if}
+						{#if combinedTax.enkNet > 0}
+							<div class="tax-calc-row">
+								<span class="tax-calc-label"
+									>Næringsinntekt: {formatCurrency(combinedTax.enkNet)} × 10,8%</span
+								>
+								<span class="font-mono">{formatCurrency(combinedTax.trygdeavgiftEnk)}</span>
+							</div>
+						{/if}
+						<div class="tax-subtotal">
+							<span></span>
+							<span class="font-mono"
+								>{formatCurrency(combinedTax.trygdeavgiftLonn + combinedTax.trygdeavgiftEnk)}</span
+							>
 						</div>
-					{/if}
-					<div class="tax-subtotal">
-						<span></span>
-						<span class="font-mono">{formatCurrency(combinedTax.trinnskatt)}</span>
 					</div>
-				</div>
 
-				<!-- SKATT PÅ ALMINNELIG INNTEKT -->
-				<div class="tax-section">
-					<h3 class="tax-section-title">Skatt på alminnelig inntekt</h3>
-					<div class="tax-calc-row">
-						<span class="tax-calc-label">Samlet personinntekt</span>
-						<span class="font-mono">{formatCurrency(combinedTax.totalPersoninntekt)}</span>
+					<!-- TRINNSKATT -->
+					<div class="tax-section">
+						<h3 class="tax-section-title">
+							Trinnskatt <span class="tax-basis"
+								>(samlet personinntekt: {formatCurrency(combinedTax.totalPersoninntekt)})</span
+							>
+						</h3>
+						{#if combinedTax.trinnskattBreakdown.length > 0}
+							{#each combinedTax.trinnskattBreakdown as bracket (bracket.bracket)}
+								{@const lowerThreshold = TRINNSKATT_BRACKETS[bracket.bracket].threshold}
+								{@const upperThreshold = Math.min(
+									TRINNSKATT_BRACKETS[bracket.bracket + 1]?.threshold ?? Infinity,
+									combinedTax.totalPersoninntekt
+								)}
+								<div class="tax-calc-row">
+									<span class="tax-calc-label"
+										>Trinn {bracket.bracket}:
+										<span class="text-muted"
+											>{formatCurrency(lowerThreshold)} – {formatCurrency(upperThreshold)} ({formatCurrency(
+												bracket.taxableAmount
+											)} × {(TRINNSKATT_BRACKETS[bracket.bracket].rate * 100).toFixed(1)}%)</span
+										></span
+									>
+									<span class="font-mono">{formatCurrency(bracket.amount)}</span>
+								</div>
+							{/each}
+						{:else}
+							<div class="tax-calc-row bracket-row text-muted">
+								<span class="tax-calc-label"
+									>Under trinn 1-grensen ({formatCurrency(TRINNSKATT_BRACKETS[1].threshold)})</span
+								>
+								<span class="font-mono">{formatCurrency(0)}</span>
+							</div>
+						{/if}
+						<div class="tax-subtotal">
+							<span></span>
+							<span class="font-mono">{formatCurrency(combinedTax.trinnskatt)}</span>
+						</div>
 					</div>
-					<div class="tax-calc-row deduction-row">
-						<span class="tax-calc-label">
-							− Minstefradrag ({formatCurrency(combinedTax.lonnGross)} × 46%{combinedTax.lonnGross * 0.46 > 95700 ? ', maks 95 700' : ''})
-						</span>
-						<span class="font-mono">−{formatCurrency(combinedTax.minstefradrag)}</span>
-					</div>
-					<div class="tax-calc-row deduction-row">
-						<span class="tax-calc-label">− Personfradrag</span>
-						<span class="font-mono">−{formatCurrency(combinedTax.personfradrag)}</span>
-					</div>
-					<div class="tax-calc-row">
-						<span class="tax-calc-label">Alminnelig inntekt</span>
-						<span class="font-mono">{formatCurrency(combinedTax.alminneligInntekt)}</span>
-					</div>
-					<div class="tax-subtotal">
-						<span class="tax-calc-label">{formatCurrency(combinedTax.alminneligInntekt)} × 22%</span>
-						<span class="font-mono">{formatCurrency(combinedTax.fellesskatt)}</span>
-					</div>
+
+					<!-- SKATT PÅ ALMINNELIG INNTEKT -->
+					<div class="tax-section">
+						<h3 class="tax-section-title">Skatt på alminnelig inntekt</h3>
+						<div class="tax-calc-row">
+							<span class="tax-calc-label">Samlet personinntekt</span>
+							<span class="font-mono">{formatCurrency(combinedTax.totalPersoninntekt)}</span>
+						</div>
+						<div class="tax-calc-row deduction-row">
+							<span class="tax-calc-label">
+								− Minstefradrag ({formatCurrency(combinedTax.lonnGross)} × 46%{combinedTax.lonnGross *
+									0.46 >
+								95700
+									? ', maks 95 700'
+									: ''})
+							</span>
+							<span class="font-mono">−{formatCurrency(combinedTax.minstefradrag)}</span>
+						</div>
+						<div class="tax-calc-row deduction-row">
+							<span class="tax-calc-label">− Personfradrag</span>
+							<span class="font-mono">−{formatCurrency(combinedTax.personfradrag)}</span>
+						</div>
+						<div class="tax-calc-row">
+							<span class="tax-calc-label">Alminnelig inntekt</span>
+							<span class="font-mono">{formatCurrency(combinedTax.alminneligInntekt)}</span>
+						</div>
+						<div class="tax-subtotal">
+							<span class="tax-calc-label"
+								>{formatCurrency(combinedTax.alminneligInntekt)} × 22%</span
+							>
+							<span class="font-mono">{formatCurrency(combinedTax.fellesskatt)}</span>
+						</div>
 					</div>
 				</details>
 
@@ -764,7 +808,9 @@
 				<dl class="total-tax-section" aria-live="polite">
 					<div class="total-tax-component">
 						<dt>Trygdeavgift</dt>
-						<dd class="font-mono">{formatCurrency(combinedTax.trygdeavgiftLonn + combinedTax.trygdeavgiftEnk)}</dd>
+						<dd class="font-mono">
+							{formatCurrency(combinedTax.trygdeavgiftLonn + combinedTax.trygdeavgiftEnk)}
+						</dd>
 					</div>
 					<div class="total-tax-component">
 						<dt>Trinnskatt</dt>
@@ -779,7 +825,13 @@
 						<dd class="font-mono">{formatCurrency(combinedTax.totalTax)}</dd>
 					</div>
 					<div class="effective-rate-row">
-						<dt>Effektiv skatteprosent: <span class="text-muted">({formatCurrency(combinedTax.totalTax)} / {formatCurrency(combinedTax.totalPersoninntekt)})*100</span></dt>
+						<dt>
+							Effektiv skatteprosent: <span class="text-muted"
+								>({formatCurrency(combinedTax.totalTax)} / {formatCurrency(
+									combinedTax.totalPersoninntekt
+								)})*100</span
+							>
+						</dt>
 						<dd class="font-mono">{combinedTax.effectiveRate.toFixed(1)}%</dd>
 					</div>
 
@@ -806,11 +858,18 @@
 
 	<!-- Trekkprosent Popover -->
 	{#if showTrekkprosentPopover}
-		<button type="button" class="popover-backdrop" onclick={closeTrekkprosentPopover} aria-label="Lukk"></button>
+		<button
+			type="button"
+			class="popover-backdrop"
+			onclick={closeTrekkprosentPopover}
+			aria-label="Lukk"
+		></button>
 		<div class="popover popover-lg" role="dialog" aria-labelledby="trekkprosent-heading">
 			<div class="popover-header">
 				<h3 id="trekkprosent-heading">Trekkprosent</h3>
-				<button type="button" class="btn-icon" onclick={closeTrekkprosentPopover} aria-label="Lukk">✕</button>
+				<button type="button" class="btn-icon" onclick={closeTrekkprosentPopover} aria-label="Lukk"
+					>✕</button
+				>
 			</div>
 
 			<div class="trekk-method-section">
@@ -848,20 +907,27 @@
 				</div>
 			{:else}
 				<div class="tabelltrekk-intro">
-					<p>Skriv inn <strong>trekkprosenten</strong> fra lønnsslippen din. Dette er prosenten arbeidsgiver trekker i skatt hver måned.</p>
+					<p>
+						Skriv inn <strong>trekkprosenten</strong> fra lønnsslippen din. Dette er prosenten arbeidsgiver
+						trekker i skatt hver måned.
+					</p>
 				</div>
 
 				<div class="tabelltrekk-employers">
 					{#each getIncomes() as income (income.id)}
-						{@const computed = income.yearlyAmount * income.employeePercentage / 100}
+						{@const computed = (income.yearlyAmount * income.employeePercentage) / 100}
 						<div class="tabelltrekk-employer">
 							<div class="tabelltrekk-employer-header">
 								<span class="tabelltrekk-employer-name">{income.name}</span>
-								<span class="tabelltrekk-employer-amount text-muted">{formatCurrency(computed)}/år</span>
+								<span class="tabelltrekk-employer-amount text-muted"
+									>{formatCurrency(computed)}/år</span
+								>
 							</div>
 
 							<div class="tabelltrekk-input-section">
-								<label class="form-label tabelltrekk-label" for="trekk-{income.id}">Trekkprosent</label>
+								<label class="form-label tabelltrekk-label" for="trekk-{income.id}"
+									>Trekkprosent</label
+								>
 								<div class="tabelltrekk-input-row">
 									<input
 										type="text"
@@ -892,11 +958,14 @@
 
 	<!-- Add Arbeidsgiver Popover -->
 	{#if showAddPopover}
-		<button type="button" class="popover-backdrop" onclick={closeAddPopover} aria-label="Lukk"></button>
+		<button type="button" class="popover-backdrop" onclick={closeAddPopover} aria-label="Lukk"
+		></button>
 		<div class="popover popover-lg" role="dialog" aria-labelledby="add-arbeidsgiver-heading">
 			<div class="popover-header">
 				<h3 id="add-arbeidsgiver-heading">Legg til arbeidsgiver</h3>
-				<button type="button" class="btn-icon" onclick={closeAddPopover} aria-label="Lukk">&#10005;</button>
+				<button type="button" class="btn-icon" onclick={closeAddPopover} aria-label="Lukk"
+					>&#10005;</button
+				>
 			</div>
 
 			<form class="popover-form" onsubmit={handleAddSubmit}>
@@ -933,7 +1002,10 @@
 							/>
 						</div>
 					</div>
-					<fieldset class="form-group" style="border: none; padding: 0; margin-bottom: var(--space-md);">
+					<fieldset
+						class="form-group"
+						style="border: none; padding: 0; margin-bottom: var(--space-md);"
+					>
 						<legend class="form-label">Periode</legend>
 						<div class="period-selector">
 							<label class="period-option">
@@ -959,19 +1031,11 @@
 							<div class="period-dates">
 								<div class="form-group" style="margin-bottom: 0;">
 									<label class="form-label" for="add-income-start-date">Fra</label>
-									<input
-										type="date"
-										id="add-income-start-date"
-										bind:value={newIncomeStartDate}
-									/>
+									<input type="date" id="add-income-start-date" bind:value={newIncomeStartDate} />
 								</div>
 								<div class="form-group" style="margin-bottom: 0;">
 									<label class="form-label" for="add-income-end-date">Til</label>
-									<input
-										type="date"
-										id="add-income-end-date"
-										bind:value={newIncomeEndDate}
-									/>
+									<input type="date" id="add-income-end-date" bind:value={newIncomeEndDate} />
 								</div>
 							</div>
 						{/if}
@@ -981,13 +1045,15 @@
 						<button
 							type="button"
 							class="collapsible-toggle"
-							onclick={() => showFeriepenger = !showFeriepenger}
+							onclick={() => (showFeriepenger = !showFeriepenger)}
 							aria-expanded={showFeriepenger}
 						>
 							<span class="collapsible-toggle-icon">{showFeriepenger ? '▾' : '▸'}</span>
 							<span>Feriepenger</span>
 							<span class="collapsible-summary text-muted">
-								{newIncomeFerieUker === '5' ? '5 uker' : '4+1 uker'}{newIncomeIsOver60 ? ' · 60+' : ''} ({formFeriepengerRate}%)
+								{newIncomeFerieUker === '5' ? '5 uker' : '4+1 uker'}{newIncomeIsOver60
+									? ' · 60+'
+									: ''} ({formFeriepengerRate}%)
 							</span>
 						</button>
 
@@ -1016,10 +1082,7 @@
 										</label>
 									</div>
 									<label class="checkbox-option">
-										<input
-											type="checkbox"
-											bind:checked={newIncomeIsOver60}
-										/>
+										<input type="checkbox" bind:checked={newIncomeIsOver60} />
 										Arbeidstaker er 60+ år (+2,3%)
 									</label>
 								</fieldset>
@@ -1030,11 +1093,14 @@
 					<div class="form-computed-section">
 						<div class="form-computed-row">
 							<span class="form-computed-label">Brutto lønn</span>
-							<span class="form-computed-value font-mono">{formatCurrency(formComputedBrutto)}</span>
+							<span class="form-computed-value font-mono">{formatCurrency(formComputedBrutto)}</span
+							>
 						</div>
 						<div class="form-computed-row">
 							<span class="form-computed-label">Feriepenger ({formFeriepengerRate}%)</span>
-							<span class="form-computed-value font-mono">{formatCurrency(formComputedFeriepenger)}</span>
+							<span class="form-computed-value font-mono"
+								>{formatCurrency(formComputedFeriepenger)}</span
+							>
 						</div>
 					</div>
 					<div class="popover-actions">
@@ -1048,12 +1114,15 @@
 
 	<!-- Edit Arbeidsgiver Popover -->
 	{#if showEditPopover && editingIncomeId}
-		{@const editingIncome = getIncomes().find(i => i.id === editingIncomeId)}
-		<button type="button" class="popover-backdrop" onclick={closeEditPopover} aria-label="Lukk"></button>
+		{@const editingIncome = getIncomes().find((i) => i.id === editingIncomeId)}
+		<button type="button" class="popover-backdrop" onclick={closeEditPopover} aria-label="Lukk"
+		></button>
 		<div class="popover popover-lg" role="dialog" aria-labelledby="edit-arbeidsgiver-heading">
 			<div class="popover-header">
 				<h3 id="edit-arbeidsgiver-heading">Rediger {editingIncome?.name ?? 'arbeidsgiver'}</h3>
-				<button type="button" class="btn-icon" onclick={closeEditPopover} aria-label="Lukk">&#10005;</button>
+				<button type="button" class="btn-icon" onclick={closeEditPopover} aria-label="Lukk"
+					>&#10005;</button
+				>
 			</div>
 
 			<form class="popover-form" onsubmit={handleEditSubmit}>
@@ -1090,7 +1159,10 @@
 							/>
 						</div>
 					</div>
-					<fieldset class="form-group" style="border: none; padding: 0; margin-bottom: var(--space-md);">
+					<fieldset
+						class="form-group"
+						style="border: none; padding: 0; margin-bottom: var(--space-md);"
+					>
 						<legend class="form-label">Periode</legend>
 						<div class="period-selector">
 							<label class="period-option">
@@ -1116,19 +1188,11 @@
 							<div class="period-dates">
 								<div class="form-group" style="margin-bottom: 0;">
 									<label class="form-label" for="edit-income-start-date">Fra</label>
-									<input
-										type="date"
-										id="edit-income-start-date"
-										bind:value={newIncomeStartDate}
-									/>
+									<input type="date" id="edit-income-start-date" bind:value={newIncomeStartDate} />
 								</div>
 								<div class="form-group" style="margin-bottom: 0;">
 									<label class="form-label" for="edit-income-end-date">Til</label>
-									<input
-										type="date"
-										id="edit-income-end-date"
-										bind:value={newIncomeEndDate}
-									/>
+									<input type="date" id="edit-income-end-date" bind:value={newIncomeEndDate} />
 								</div>
 							</div>
 						{/if}
@@ -1138,13 +1202,15 @@
 						<button
 							type="button"
 							class="collapsible-toggle"
-							onclick={() => showFeriepenger = !showFeriepenger}
+							onclick={() => (showFeriepenger = !showFeriepenger)}
 							aria-expanded={showFeriepenger}
 						>
 							<span class="collapsible-toggle-icon">{showFeriepenger ? '▾' : '▸'}</span>
 							<span>Feriepenger</span>
 							<span class="collapsible-summary text-muted">
-								{newIncomeFerieUker === '5' ? '5 uker' : '4+1 uker'}{newIncomeIsOver60 ? ' · 60+' : ''} ({formFeriepengerRate}%)
+								{newIncomeFerieUker === '5' ? '5 uker' : '4+1 uker'}{newIncomeIsOver60
+									? ' · 60+'
+									: ''} ({formFeriepengerRate}%)
 							</span>
 						</button>
 
@@ -1173,10 +1239,7 @@
 										</label>
 									</div>
 									<label class="checkbox-option">
-										<input
-											type="checkbox"
-											bind:checked={newIncomeIsOver60}
-										/>
+										<input type="checkbox" bind:checked={newIncomeIsOver60} />
 										Arbeidstaker er 60+ år (+2,3%)
 									</label>
 								</fieldset>
@@ -1189,7 +1252,7 @@
 						<button
 							type="button"
 							class="adjustments-toggle"
-							onclick={() => showAdjustments = !showAdjustments}
+							onclick={() => (showAdjustments = !showAdjustments)}
 							aria-expanded={showAdjustments}
 						>
 							<span class="adjustments-toggle-icon">{showAdjustments ? '▾' : '▸'}</span>
@@ -1202,15 +1265,24 @@
 								{#if (editingIncome?.adjustments?.length ?? 0) > 0}
 									<ul class="adjustments-list">
 										{#each editingIncome?.adjustments ?? [] as adjustment (adjustment.id)}
-											{@const monthLabel = MONTHS_NO.find(m => m.value === adjustment.month)?.label ?? ''}
-											{@const typeLabel = ADJUSTMENT_TYPES.find(t => t.value === adjustment.type)?.label ?? ''}
-											<li class="adjustment-item" class:editing={editingAdjustmentId === adjustment.id}>
+											{@const monthLabel =
+												MONTHS_NO.find((m) => m.value === adjustment.month)?.label ?? ''}
+											{@const typeLabel =
+												ADJUSTMENT_TYPES.find((t) => t.value === adjustment.type)?.label ?? ''}
+											<li
+												class="adjustment-item"
+												class:editing={editingAdjustmentId === adjustment.id}
+											>
 												<div class="adjustment-info">
 													<span class="adjustment-month">{monthLabel}:</span>
 													<span class="adjustment-type">{typeLabel}</span>
-													<span class="adjustment-amount font-mono">{formatCurrency(adjustment.amount)}</span>
+													<span class="adjustment-amount font-mono"
+														>{formatCurrency(adjustment.amount)}</span
+													>
 													{#if !adjustment.affectsFeriepenger}
-														<span class="adjustment-no-ferie" title="Påvirker ikke feriepenger">&#10005; ferie</span>
+														<span class="adjustment-no-ferie" title="Påvirker ikke feriepenger"
+															>&#10005; ferie</span
+														>
 													{/if}
 												</div>
 												<div class="adjustment-actions">
@@ -1242,7 +1314,7 @@
 										<div class="form-group" style="margin-bottom: 0;">
 											<label class="form-label" for="adj-type">Type</label>
 											<select id="adj-type" bind:value={newAdjustmentType}>
-												{#each ADJUSTMENT_TYPES as type}
+												{#each ADJUSTMENT_TYPES as type (type.value)}
 													<option value={type.value}>{type.label}</option>
 												{/each}
 											</select>
@@ -1250,7 +1322,7 @@
 										<div class="form-group" style="margin-bottom: 0;">
 											<label class="form-label" for="adj-month">Måned</label>
 											<select id="adj-month" bind:value={newAdjustmentMonth}>
-												{#each MONTHS_NO as month}
+												{#each MONTHS_NO as month (month.value)}
 													<option value={month.value}>{month.label}</option>
 												{/each}
 											</select>
@@ -1267,15 +1339,16 @@
 										/>
 									</div>
 									<label class="checkbox-option" style="margin-top: 0;">
-										<input
-											type="checkbox"
-											bind:checked={newAdjustmentAffectsFerie}
-										/>
+										<input type="checkbox" bind:checked={newAdjustmentAffectsFerie} />
 										Påvirker feriepenger
 									</label>
 									<div class="adjustment-form-actions">
 										{#if editingAdjustmentId}
-											<button type="button" class="btn-secondary btn-sm" onclick={resetAdjustmentForm}>Avbryt</button>
+											<button
+												type="button"
+												class="btn-secondary btn-sm"
+												onclick={resetAdjustmentForm}>Avbryt</button
+											>
 										{/if}
 										<button
 											type="button"
@@ -1294,21 +1367,28 @@
 					<div class="form-computed-section">
 						<div class="form-computed-row">
 							<span class="form-computed-label">Brutto lønn</span>
-							<span class="form-computed-value font-mono">{formatCurrency(formComputedBrutto)}</span>
+							<span class="form-computed-value font-mono">{formatCurrency(formComputedBrutto)}</span
+							>
 						</div>
 						{#if formAdjustmentsTotal > 0}
 							<div class="form-computed-row form-computed-adjustment">
 								<span class="form-computed-label">+ Tillegg/bonus</span>
-								<span class="form-computed-value font-mono">+{formatCurrency(formAdjustmentsTotal)}</span>
+								<span class="form-computed-value font-mono"
+									>+{formatCurrency(formAdjustmentsTotal)}</span
+								>
 							</div>
 							<div class="form-computed-row form-computed-total">
 								<span class="form-computed-label">= Total</span>
-								<span class="form-computed-value font-mono">{formatCurrency(formComputedTotalBrutto)}</span>
+								<span class="form-computed-value font-mono"
+									>{formatCurrency(formComputedTotalBrutto)}</span
+								>
 							</div>
 						{/if}
 						<div class="form-computed-row">
 							<span class="form-computed-label">Feriepenger ({formFeriepengerRate}%)</span>
-							<span class="form-computed-value font-mono">{formatCurrency(formComputedFeriepenger)}</span>
+							<span class="form-computed-value font-mono"
+								>{formatCurrency(formComputedFeriepenger)}</span
+							>
 						</div>
 					</div>
 					<div class="popover-actions">
@@ -1322,11 +1402,14 @@
 
 	<!-- Utgifter Popover -->
 	{#if showUtgifterPopover}
-		<button type="button" class="popover-backdrop" onclick={closeUtgifterPopover} aria-label="Lukk"></button>
+		<button type="button" class="popover-backdrop" onclick={closeUtgifterPopover} aria-label="Lukk"
+		></button>
 		<div class="popover popover-sm" role="dialog" aria-labelledby="utgifter-heading">
 			<div class="popover-header">
 				<h3 id="utgifter-heading">Utgifter</h3>
-				<button type="button" class="btn-icon" onclick={closeUtgifterPopover} aria-label="Lukk">✕</button>
+				<button type="button" class="btn-icon" onclick={closeUtgifterPopover} aria-label="Lukk"
+					>✕</button
+				>
 			</div>
 			<fieldset class="form-fieldset">
 				<legend class="sr-only">Næringsutgifter</legend>
@@ -1340,7 +1423,10 @@
 						placeholder="0"
 						min="0"
 					/>
-					<span class="text-muted" style="font-size: 0.8rem; margin-top: var(--space-xs); display: block;">
+					<span
+						class="text-muted"
+						style="font-size: 0.8rem; margin-top: var(--space-xs); display: block;"
+					>
 						Utgifter knyttet til oppdragene dine
 					</span>
 				</div>
@@ -1353,11 +1439,18 @@
 
 	<!-- Add Oppdrag Popover -->
 	{#if showAddOppdragPopover}
-		<button type="button" class="popover-backdrop" onclick={closeAddOppdragPopover} aria-label="Lukk"></button>
+		<button
+			type="button"
+			class="popover-backdrop"
+			onclick={closeAddOppdragPopover}
+			aria-label="Lukk"
+		></button>
 		<div class="popover popover-lg" role="dialog" aria-labelledby="add-oppdrag-heading">
 			<div class="popover-header">
 				<h3 id="add-oppdrag-heading">Legg til oppdrag</h3>
-				<button type="button" class="btn-icon" onclick={closeAddOppdragPopover} aria-label="Lukk">&#10005;</button>
+				<button type="button" class="btn-icon" onclick={closeAddOppdragPopover} aria-label="Lukk"
+					>&#10005;</button
+				>
 			</div>
 
 			<form class="popover-form" onsubmit={handleAddOppdragSubmit}>
@@ -1391,7 +1484,9 @@
 						/>
 					</div>
 					<div class="popover-actions">
-						<button type="button" class="btn-secondary" onclick={closeAddOppdragPopover}>Avbryt</button>
+						<button type="button" class="btn-secondary" onclick={closeAddOppdragPopover}
+							>Avbryt</button
+						>
 						<button type="submit" class="btn-primary">Legg til</button>
 					</div>
 				</fieldset>
@@ -1401,12 +1496,19 @@
 
 	<!-- Edit Oppdrag Popover -->
 	{#if showEditOppdragPopover && editingFreelanceId}
-		{@const editingFreelance = getFreelanceIncomes().find(f => f.id === editingFreelanceId)}
-		<button type="button" class="popover-backdrop" onclick={closeEditOppdragPopover} aria-label="Lukk"></button>
+		{@const editingFreelance = getFreelanceIncomes().find((f) => f.id === editingFreelanceId)}
+		<button
+			type="button"
+			class="popover-backdrop"
+			onclick={closeEditOppdragPopover}
+			aria-label="Lukk"
+		></button>
 		<div class="popover popover-lg" role="dialog" aria-labelledby="edit-oppdrag-heading">
 			<div class="popover-header">
 				<h3 id="edit-oppdrag-heading">Rediger {editingFreelance?.client ?? 'oppdrag'}</h3>
-				<button type="button" class="btn-icon" onclick={closeEditOppdragPopover} aria-label="Lukk">&#10005;</button>
+				<button type="button" class="btn-icon" onclick={closeEditOppdragPopover} aria-label="Lukk"
+					>&#10005;</button
+				>
 			</div>
 
 			<form class="popover-form" onsubmit={handleEditOppdragSubmit}>
@@ -1440,7 +1542,9 @@
 						/>
 					</div>
 					<div class="popover-actions">
-						<button type="button" class="btn-secondary" onclick={closeEditOppdragPopover}>Avbryt</button>
+						<button type="button" class="btn-secondary" onclick={closeEditOppdragPopover}
+							>Avbryt</button
+						>
 						<button type="submit" class="btn-primary">Oppdater</button>
 					</div>
 				</fieldset>
@@ -1687,7 +1791,6 @@
 		font-size: 0.9rem;
 	}
 
-
 	.deduction-row {
 		color: var(--color-text-muted);
 	}
@@ -1819,7 +1922,9 @@
 		font-size: 0.9rem;
 		cursor: pointer;
 		color: var(--color-text-muted);
-		transition: background var(--duration-fast), color var(--duration-fast);
+		transition:
+			background var(--duration-fast),
+			color var(--duration-fast);
 	}
 
 	.tax-toggle-btn:first-child {

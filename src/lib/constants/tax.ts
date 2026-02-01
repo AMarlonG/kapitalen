@@ -9,7 +9,7 @@
 export const TRINNSKATT_BRACKETS = [
 	{ threshold: 0, rate: 0 },
 	{ threshold: 226_100, rate: 0.017 },
-	{ threshold: 318_300, rate: 0.040 },
+	{ threshold: 318_300, rate: 0.04 },
 	{ threshold: 725_050, rate: 0.137 },
 	{ threshold: 980_100, rate: 0.168 },
 	{ threshold: 1_467_200, rate: 0.178 }
@@ -55,9 +55,9 @@ export const FERIEPENGER_RATES = {
 // ============================================
 export const WITHHOLDING_BRACKETS = [
 	{ threshold: 0, rate: 0.25 },
-	{ threshold: 200_000, rate: 0.30 },
+	{ threshold: 200_000, rate: 0.3 },
 	{ threshold: 400_000, rate: 0.35 },
-	{ threshold: 600_000, rate: 0.40 },
+	{ threshold: 600_000, rate: 0.4 },
 	{ threshold: 900_000, rate: 0.45 }
 ] as const;
 

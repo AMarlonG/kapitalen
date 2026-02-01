@@ -21,7 +21,9 @@
 
 	<!-- Financial Summary -->
 	<section class="section" aria-labelledby="summary-heading">
-		<h2 id="summary-heading" class="section-title" style="margin-bottom: var(--space-md);">Månedlig oversikt</h2>
+		<h2 id="summary-heading" class="section-title" style="margin-bottom: var(--space-md);">
+			Månedlig oversikt
+		</h2>
 		<dl class="summary-grid">
 			<div class="summary-card">
 				<dt class="summary-label">Brutto inntekt</dt>
@@ -37,13 +39,21 @@
 			</div>
 			<div class="summary-card">
 				<dt class="summary-label">Sparing</dt>
-				<dd class="summary-value" class:text-success={getMonthlySavings() >= 0} class:text-danger={getMonthlySavings() < 0}>
+				<dd
+					class="summary-value"
+					class:text-success={getMonthlySavings() >= 0}
+					class:text-danger={getMonthlySavings() < 0}
+				>
 					{formatCurrency(getMonthlySavings())}
 				</dd>
 			</div>
 			<div class="summary-card">
 				<dt class="summary-label">Sparerate</dt>
-				<dd class="summary-value" class:text-success={getSavingsRate() >= 0} class:text-danger={getSavingsRate() < 0}>
+				<dd
+					class="summary-value"
+					class:text-success={getSavingsRate() >= 0}
+					class:text-danger={getSavingsRate() < 0}
+				>
 					{formatPercent(getSavingsRate())}
 				</dd>
 			</div>
@@ -70,7 +80,9 @@
 	.quick-action {
 		text-decoration: none;
 		color: inherit;
-		transition: transform var(--duration-fast) ease, box-shadow var(--duration-fast) ease;
+		transition:
+			transform var(--duration-fast) ease,
+			box-shadow var(--duration-fast) ease;
 	}
 
 	.quick-action:hover {

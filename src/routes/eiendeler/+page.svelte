@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { formatCurrency } from '$lib/utils/formatters';
+	// Placeholder page - no imports needed yet
 </script>
 
 <svelte:head>
@@ -21,7 +21,11 @@
 				Her vil du kunne registrere og følge med på verdiene dine, som bankkontoer, fond, aksjer,
 				eiendom og andre eiendeler.
 			</p>
-			<a href="/budsjett" class="btn-primary" style="margin-top: var(--space-md); display: inline-block;">
+			<a
+				href="/budsjett"
+				class="btn-primary"
+				style="margin-top: var(--space-md); display: inline-block;"
+			>
 				Gå til budsjett
 			</a>
 		</div>

@@ -446,6 +446,10 @@ button:active {
 	gap: var(--space-lg);
 }
 
+.summary-grid-single {
+	max-width: 400px;
+}
+
 .summary-card {
 	background-color: var(--color-surface);
 	border-radius: var(--radius-lg);
@@ -728,7 +732,7 @@ button:active {
 	cursor: pointer;
 }
 
-.period-option input[type="radio"] {
+.period-option input[type='radio'] {
 	width: 18px;
 	height: 18px;
 	accent-color: var(--color-primary);
@@ -744,7 +748,7 @@ button:active {
 }
 
 /* Date input styling */
-input[type="date"] {
+input[type='date'] {
 	width: 100%;
 	padding: var(--space-sm) var(--space-md);
 	border: 1px solid var(--color-border);
@@ -756,7 +760,7 @@ input[type="date"] {
 	transition: border-color var(--duration-fast) ease;
 }
 
-input[type="date"]:focus {
+input[type='date']:focus {
 	outline: none;
 	border-color: var(--color-primary);
 	box-shadow: 0 0 0 3px rgb(37 99 235 / 0.1);
@@ -772,7 +776,7 @@ input[type="date"]:focus {
 	cursor: pointer;
 }
 
-.checkbox-option input[type="checkbox"] {
+.checkbox-option input[type='checkbox'] {
 	width: 18px;
 	height: 18px;
 	accent-color: var(--color-primary);

@@ -31,6 +31,8 @@ npm run dev          # Start dev server (localhost:5173)
 npm run build        # Build for production
 npm run preview      # Preview production build
 npm run check        # TypeScript check
+npm run lint         # Check formatting + ESLint
+npm run format       # Auto-format with Prettier
 ```
 
 ## Project Structure

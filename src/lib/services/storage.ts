@@ -77,10 +77,7 @@ export function hasStorageKey(key: string): boolean {
  * Create a debounced save function
  * Prevents rapid writes to LocalStorage
  */
-export function createDebouncedSave<T>(
-	key: string,
-	delayMs: number = 300
-): (value: T) => void {
+export function createDebouncedSave<T>(key: string, delayMs: number = 300): (value: T) => void {
 	let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
 	return (value: T) => {
